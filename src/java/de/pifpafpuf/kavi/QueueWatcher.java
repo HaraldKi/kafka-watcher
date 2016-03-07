@@ -1,19 +1,26 @@
 package de.pifpafpuf.kavi;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
+import de.pifpafpuf.kavi.offmeta.GroupMetaKey;
+import de.pifpafpuf.kavi.offmeta.GroupMsgValue;
 import de.pifpafpuf.kavi.offmeta.MetaKey;
 import de.pifpafpuf.kavi.offmeta.MsgValue;
 import de.pifpafpuf.kavi.offmeta.OffsetInfo;
@@ -43,47 +50,69 @@ public class QueueWatcher  {
     //tipcon.subscribe(Pattern.compile(".*"), this);
     assignAllTipCon();
   }
-
+  /*+**********************************************************************/
   public void rewindOffsets(int count) {
     kafcon.seekToEnd(); // undocumented, but seeks all subscribed
     for (TopicPartition tp : kafcon.assignment()) {
       long position = kafcon.position(tp);
       if (position>0) {
         long newpos = Math.max(0, position-count);
-        System.out.println("rewinding "+tp+" to "+newpos);
         kafcon.seek(tp,  newpos);
       }
     }
   }
-
+  /*+**********************************************************************/
   public Map<String, OffsetInfo> getLastOffsets(long pollMillis) {
+    Map<String, List<String>> groupData = new HashMap<>();
+    
     Map<String, OffsetInfo> result = new HashMap<>();
     ConsumerRecords<byte[], byte[]> data;
-    for (data=kafcon.poll(pollMillis); 
-        !data.isEmpty(); 
+    for (data=kafcon.poll(pollMillis);
+        !data.isEmpty();
         data=kafcon.poll(pollMillis)) {
       for(ConsumerRecord<byte[], byte[]> r : data) {
         MetaKey key = MetaKey.decode(r.key());
+        result.remove(key.getKey());
         if (key instanceof OffsetMetaKey) {
           OffsetMetaKey okey = (OffsetMetaKey)key;
           OffsetMsgValue value = (OffsetMsgValue)key.decodeValue(r.value());
-          result.put(key.getKey(), new OffsetInfo(okey, value));
+          long tip = getLogTip(okey);
+          OffsetInfo oinfo = new OffsetInfo(tip, okey, value);
+          result.put(key.getKey(), oinfo);
+          addConsumer(groupData, okey);
+          //System.out.printf("%s  %s%n", key, value);
+        } else {
+          GroupMsgValue v = GroupMsgValue.decode(r.value());
+          if (v.version<0) {
+            GroupMetaKey gkey = (GroupMetaKey)key;
+            //System.out.println("killing "+gkey);
+            List<String> deadKeys = groupData.get(gkey.group);
+            if (deadKeys!=null) {
+              for (String dead : deadKeys) {
+                result.remove(dead);
+              }
+            }
+          }
         }
       }
     }
     return result;
   }
-  
-  public void listOffsets() {
-    ConsumerRecords<byte[], byte[]> data;
-    for (data=kafcon.poll(1000); !data.isEmpty(); data=kafcon.poll(1000)) {
-      for(ConsumerRecord<byte[], byte[]> r : data) {
-        MetaKey bk = MetaKey.decode(r.key());
-        Object value = bk.decodeValue(r.value());
-        System.out.printf("xx: partition:pos=%d:%d, key=`%s', value=`%s'%n",
-                          r.partition(), r.offset(), bk, value);
-      }
+  /*+**********************************************************************/
+  private static void addConsumer(Map<String, List<String>> groupData,
+                                  OffsetMetaKey okey) {
+    List<String> keys = groupData.get(okey.group);
+    if (keys==null) {
+      keys = new LinkedList<String>();
+      groupData.put(okey.group, keys);
     }
+    keys.add(okey.getKey());
+  }
+  /*+**********************************************************************/
+  private long getLogTip(OffsetMetaKey key) {
+    TopicPartition tp = new TopicPartition(key.topic, key.partition);
+    tipcon.seekToEnd(tp);
+    return tipcon.position(tp);
   }
 
   private void assignablePartitions(List<TopicPartition> result,
@@ -107,51 +136,56 @@ public class QueueWatcher  {
     tipcon.assign(assigns);
   }
   /*+******************************************************************/
-  public void info() {
-    Map<String,List<PartitionInfo>> meta = kafcon.listTopics();
-    System.out.println("fetching information");
-    for (String topic : meta.keySet()) {
-      for (PartitionInfo pi : meta.get(topic)) {
-        TopicPartition tp = new TopicPartition(topic, pi.partition());
-        tipcon.seekToEnd(tp);
-        long endPos = tipcon.position(tp);
-        OffsetAndMetadata oam = kafcon.committed(tp);
-        if (oam==null) {
-          oam = new OffsetAndMetadata(-3);
-        }
-        format(pi, oam, endPos);
+  private enum OffsetCmp implements Comparator<OffsetInfo> {
+    INSTANCE;
+
+    @Override public int compare(OffsetInfo arg0, OffsetInfo arg1) {
+      OffsetMetaKey k0 = arg0.key;
+      OffsetMetaKey k1 = arg1.key;
+
+      int v = k0.topic.compareTo(k1.topic);
+      if (v!=0) {
+        return v;
       }
+      v = k0.partition - k1.partition;
+      if (v!=0) {
+        return v;
+      }
+      return k0.group.compareTo(k1.group);
     }
   }
+  /*+**********************************************************************/
+  private static final void prettyPrint(Map<String, OffsetInfo> offsets) {
+    DateFormat df = new SimpleDateFormat("yyyyMMdd_HH:mm:ss");
 
-  private void format(PartitionInfo pi, OffsetAndMetadata oam, long endPos) {
-    if (pi.topic().startsWith("ccc__")) {
-      return;
+    List<OffsetInfo> l = new ArrayList<>(offsets.size());
+    l.addAll(offsets.values());
+    Collections.sort(l, OffsetCmp.INSTANCE);
+    for (OffsetInfo oi : l) {
+      OffsetMetaKey key = oi.key;
+      OffsetMsgValue value = oi.value;
+      String commit = df.format(value.commitStamp);
+      long lag = oi.tip-value.offset;
+      String msg = String.format("%s.%02d/%s: offset=%5d of %s, lag=%d%n",
+                                 key.topic, key.partition, key.group,
+                                 value.offset, commit, lag);
+      System.out.print(msg);
     }
-    System.out.printf("topic=%s, partition=%d, leader=%s, "
-        + "offset=%d, end=%d, meta=%s%n",
-        pi.topic(), pi.partition(), pi.leader(),
-        oam.offset(), endPos, oam.metadata());
   }
-
-  public void run() throws InterruptedException {
-    while (true) {
-      info();
-      Thread.sleep(2000);
-    }
-  }
-
-  public static void main(String[] args) throws InterruptedException {
+  /*+**********************************************************************/
+  public static void main(String[] args)  {
     QueueWatcher qw = new QueueWatcher("localhost", 9092);
-    qw.rewindOffsets(2);
+
     while (true) {
+      qw.rewindOffsets(100);
       Map<String, OffsetInfo> offsets = qw.getLastOffsets(1000);
       if (offsets.isEmpty()) {
         continue;
       }
-      System.out.println(offsets);
+      System.out.println();
+      prettyPrint(offsets);
     }
-    
+
   }
 
 }

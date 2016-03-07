@@ -3,15 +3,17 @@ package de.pifpafpuf.kavi.offmeta;
 public class OffsetInfo {
   public final OffsetMetaKey key;
   public final OffsetMsgValue value;
+  public final long tip;
   
-  public OffsetInfo(OffsetMetaKey key, OffsetMsgValue value) {
+  public OffsetInfo(long tip, OffsetMetaKey key, OffsetMsgValue value) {
+    this.tip = tip;
     this.key = key;
     this.value = value;
   }
 
   @Override
   public String toString() {
-    return "OffsetInfo[key="+key+", value="+value+"]";
+    return "OffsetInfo[tip="+tip+", key="+key+", value="+value+"]";
   }
   
   
