@@ -18,78 +18,146 @@ import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.log4j.Logger;
 
 import de.pifpafpuf.kavi.offmeta.GroupMetaKey;
 import de.pifpafpuf.kavi.offmeta.GroupMsgValue;
 import de.pifpafpuf.kavi.offmeta.MetaKey;
-import de.pifpafpuf.kavi.offmeta.MsgValue;
 import de.pifpafpuf.kavi.offmeta.OffsetInfo;
 import de.pifpafpuf.kavi.offmeta.OffsetMetaKey;
 import de.pifpafpuf.kavi.offmeta.OffsetMsgValue;
+import de.pifpafpuf.kavi.offmeta.OffsetsKeyDeserializer;
+import de.pifpafpuf.kavi.offmeta.PartitionMeta;
 
-public class QueueWatcher  {
+public class QueueWatcher {
+  private static final Logger log = KafkaViewerServer.getLogger();
   private final String TOPIC_OFFSET = "__consumer_offsets";
 
-  private final KafkaConsumer<byte[], byte[]> kafcon;
-  private final KafkaConsumer<String, String> tipcon;
+  private final KafkaConsumer<String, byte[]> kafcon;
+  private final KafkaConsumer<MetaKey, byte[]> offcon;
 
   public QueueWatcher(String host, int port) {
     Properties props = new Properties();
     props.put("group.id", "some-random-group-id");
     props.put("bootstrap.servers", host+":"+port);
     props.put("enable.auto.commit", "false");
-    kafcon = new KafkaConsumer<>(props, new ByteArrayDeserializer(),
+    kafcon = new KafkaConsumer<>(props, new StringDeserializer(),
+        new ByteArrayDeserializer());
+    assignAllPartitions(kafcon);
+    props.put("group.id", "totally-random-group-id");
+    
+    offcon = new KafkaConsumer<>(props, OffsetsKeyDeserializer.INSTANCE,
         new ByteArrayDeserializer());
     List<TopicPartition> tps = new LinkedList<>();
-    assignablePartitions(tps, kafcon, TOPIC_OFFSET);
-    kafcon.assign(tps);
-
-    props.put("group.id", "this-should-be-a-random-group");
-    tipcon = new KafkaConsumer<>(props, new StringDeserializer(),
-        new StringDeserializer());
-    //tipcon.subscribe(Pattern.compile(".*"), this);
-    assignAllTipCon();
+    assignablePartitions(tps, offcon, TOPIC_OFFSET);
+    offcon.assign(tps);
+  }
+  /*+**********************************************************************/
+  public Map<String, List<PartitionMeta>> topicInfo() {
+    Map<String, List<PartitionMeta>> result = new HashMap<>();
+    Map<String, List<PartitionInfo>> m = kafcon.listTopics();
+    for (Map.Entry<String, List<PartitionInfo>> elem : m.entrySet()) {
+      List<PartitionMeta> l = result.get(elem.getKey());
+      if (l==null) {
+        l = new LinkedList<>();
+        result.put(elem.getKey(), l);
+        setOffsets(elem.getKey(), -1);
+      }
+      for (PartitionInfo pi : elem.getValue()) {
+        long offset = kafcon.position(tpFromPi(pi));
+        l.add(new PartitionMeta(pi.topic(), pi.partition(), offset+1));
+      }
+    }
+    return result;
+  }
+  /*+******************************************************************/
+  public List<ConsumerRecord<String, byte[]>>
+  readRecords(String topic, int offset)
+  {
+    setOffsets(topic, offset);
+    final long WAIT = 1000;
+    boolean timedout = false;
+    List<ConsumerRecord<String, byte[]>> result = new LinkedList<>();
+    while (!timedout) {
+      long now = System.currentTimeMillis();
+      ConsumerRecords<String, byte[]> recs = kafcon.poll(WAIT);
+      long later = System.currentTimeMillis();
+      timedout = now+WAIT>=later;
+      for (ConsumerRecord<String, byte[]> rec : recs) {
+        result.add(rec);
+      }
+    }
+    return result;
+  }
+  /*+******************************************************************/
+  private void setOffsets(String topic, int offset) {
+    int numPartitions = kafcon.partitionsFor(topic).size();
+    List<TopicPartition> result = new LinkedList<>();
+    for (int i=0; i<numPartitions; i++) {
+      result.add(new TopicPartition(topic, i));
+    }
+    if (offset<0) {
+      kafcon.seekToEnd(result);
+    }
+    
+    for (int i=0; i<numPartitions; i++) {
+      TopicPartition tp = result.remove(0);
+      long newOffset; 
+      if (offset<0) {
+        newOffset = Math.max(0, kafcon.position(tp)+offset);
+      } else {
+        newOffset = offset;
+      }
+      kafcon.seek(tp, newOffset);
+    }
+  }
+  /*+******************************************************************/
+  private long getHead(TopicPartition key) {
+    offcon.seekToEnd(Collections.singletonList(key));
+    return offcon.position(key);
   }
   /*+**********************************************************************/
   public void rewindOffsets(int count) {
-    kafcon.seekToEnd(); // undocumented, but seeks all subscribed
-    for (TopicPartition tp : kafcon.assignment()) {
-      long position = kafcon.position(tp);
+    List<TopicPartition> tps = new LinkedList<>();
+    assignablePartitions(tps, offcon, TOPIC_OFFSET);
+    offcon.seekToEnd(tps);
+    for (TopicPartition tp : offcon.assignment()) {
+      long position = offcon.position(tp);
       if (position>0) {
         long newpos = Math.max(0, position-count);
-        kafcon.seek(tp,  newpos);
+        log.info("seeking "+tp+" to "+newpos);
+        offcon.seek(tp,  newpos);
       }
     }
   }
   /*+**********************************************************************/
   public Map<String, OffsetInfo> getLastOffsets(long pollMillis) {
     Map<String, List<String>> groupData = new HashMap<>();
-    
+
     Map<String, OffsetInfo> result = new HashMap<>();
-    ConsumerRecords<byte[], byte[]> data;
-    for (data=kafcon.poll(pollMillis);
+    ConsumerRecords<MetaKey, byte[]> data;
+    for (data=offcon.poll(pollMillis);
         !data.isEmpty();
-        data=kafcon.poll(pollMillis)) {
-      for(ConsumerRecord<byte[], byte[]> r : data) {
-        MetaKey key = MetaKey.decode(r.key());
-        result.remove(key.getKey());
+        data=offcon.poll(pollMillis)) {
+      for(ConsumerRecord<MetaKey, byte[]> r : data) {
+        MetaKey key = r.key();
+        result.remove(key.getKey()); // keep only the most recent
         if (key instanceof OffsetMetaKey) {
           OffsetMetaKey okey = (OffsetMetaKey)key;
           OffsetMsgValue value = (OffsetMsgValue)key.decodeValue(r.value());
-          long tip = getLogTip(okey);
+          long tip = 0;//getHead(okey);
           OffsetInfo oinfo = new OffsetInfo(tip, okey, value);
           result.put(key.getKey(), oinfo);
           addConsumer(groupData, okey);
-          //System.out.printf("%s  %s%n", key, value);
         } else {
           GroupMsgValue v = GroupMsgValue.decode(r.value());
+          GroupMetaKey gkey = (GroupMetaKey)key;
           if (v.version<0) {
-            GroupMetaKey gkey = (GroupMetaKey)key;
-            //System.out.println("killing "+gkey);
             List<String> deadKeys = groupData.get(gkey.group);
             if (deadKeys!=null) {
               for (String dead : deadKeys) {
-                result.remove(dead);
+                OffsetInfo oi = result.remove(dead);
+                result.put(dead, oi.asDead());
               }
             }
           }
@@ -109,31 +177,25 @@ public class QueueWatcher  {
     keys.add(okey.getKey());
   }
   /*+**********************************************************************/
-  private long getLogTip(OffsetMetaKey key) {
-    TopicPartition tp = new TopicPartition(key.topic, key.partition);
-    tipcon.seekToEnd(tp);
-    return tipcon.position(tp);
-  }
-
-  private void assignablePartitions(List<TopicPartition> result,
-                                    KafkaConsumer<?,?> con,
-                                    String topic)
+  private static void assignablePartitions(List<TopicPartition> result,
+                                           KafkaConsumer<?,?> con,
+                                           String topic)
   {
     List<PartitionInfo> pis = con.partitionsFor(topic);
     for (PartitionInfo pi : pis) {
       result.add(tpFromPi(pi));
     }
   }
-  private TopicPartition tpFromPi(PartitionInfo pi) {
+  private static TopicPartition tpFromPi(PartitionInfo pi) {
     return new TopicPartition(pi.topic(), pi.partition());
   }
 
-  private void assignAllTipCon() {
+  private static void assignAllPartitions(KafkaConsumer<?,?> consumer) {
     List<TopicPartition> assigns = new LinkedList<>();
-    for (String topic : tipcon.listTopics().keySet()) {
-      assignablePartitions(assigns, tipcon, topic);
+    for (String topic : consumer.listTopics().keySet()) {
+      assignablePartitions(assigns, consumer, topic);
     }
-    tipcon.assign(assigns);
+    consumer.assign(assigns);
   }
   /*+******************************************************************/
   private enum OffsetCmp implements Comparator<OffsetInfo> {
@@ -173,19 +235,4 @@ public class QueueWatcher  {
     }
   }
   /*+**********************************************************************/
-  public static void main(String[] args)  {
-    QueueWatcher qw = new QueueWatcher("localhost", 9092);
-
-    while (true) {
-      qw.rewindOffsets(100);
-      Map<String, OffsetInfo> offsets = qw.getLastOffsets(1000);
-      if (offsets.isEmpty()) {
-        continue;
-      }
-      System.out.println();
-      prettyPrint(offsets);
-    }
-
-  }
-
 }

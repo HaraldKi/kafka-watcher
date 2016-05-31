@@ -10,7 +10,7 @@ public class OffsetMetaKey extends MetaKey {
     return group+','+topic+','+partition;
   }
   
-  public OffsetMetaKey(short version, String group, String topic, short partition ) {
+  public OffsetMetaKey(short version, String group, String topic, short partition) {
     super(version);
     this.partition = partition;
     this.group = group;

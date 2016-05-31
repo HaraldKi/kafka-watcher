@@ -1,0 +1,37 @@
+.topicrow:nth-child(1) div {
+  border-bottom: 1px solid black;
+}
+.topicrow > div {
+  display: inline-block;
+}
+
+
+.topicrow div:nth-child(1) {
+  text-align:right;
+  width: 20em;
+}
+
+.topicrow div:nth-child(2) {
+  width: 4em;
+  background: #f3f3f3;
+  text-align: right;
+}
+
+
+.records {
+  border: 1px solid grey;
+}
+.records thead tr {
+  border-bottom: 1px solid #aaccaa;
+}
+.records thead {
+  background: #cfc;
+}
+
+.recordrow td:nth-child(-n+3) {
+  text-align: right;
+}
+
+.recordrow div:nth-child(3) {
+
+}
