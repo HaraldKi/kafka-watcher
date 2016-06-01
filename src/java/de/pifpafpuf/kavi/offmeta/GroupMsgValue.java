@@ -14,8 +14,9 @@ public class GroupMsgValue extends MsgValue {
     this.protocol = protocol;
   }
   
-  public static GroupMsgValue decode(byte[] data) {    if (data==null) {
-      return new GroupMsgValue((short)-1, "no data");
+  public static GroupMsgValue decode(byte[] data) {  
+    if (data==null) {
+      return null;
     }
 
     ByteBuffer b = ByteBuffer.wrap(data);

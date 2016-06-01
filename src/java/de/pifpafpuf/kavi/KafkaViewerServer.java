@@ -2,6 +2,12 @@ package de.pifpafpuf.kavi;
 
 import javax.servlet.Servlet;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.rewrite.handler.RedirectRegexRule;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
@@ -19,15 +25,26 @@ public class KafkaViewerServer {
   private static Server server;
 
   // application status
-  private static QueueWatcher qw = new QueueWatcher("localhost", 9092);
+  private static QueueWatcher qw = null;
   
   /*+******************************************************************/
   public static void main(String[] argv) throws Exception {
-
-    setupServer(argv);
-    Runtime.getRuntime().addShutdownHook(new Stopper());
-    server.join();
-    log.info("server properly shut down");
+    try {
+      setupServer(argv);
+      Runtime.getRuntime().addShutdownHook(new Stopper());
+      if (server!=null) {
+        server.join();
+        log.info("server properly shut down");
+      }
+    } catch (Exception e) {
+      if (server!=null) {
+        server.stop();
+      }
+      if (qw!=null) {
+        qw.shutdown();
+      }
+      e.printStackTrace();
+    }
   }
   /*+******************************************************************/
   public static QueueWatcher getQueueWatcher() {
@@ -35,15 +52,34 @@ public class KafkaViewerServer {
   }
   /*+******************************************************************/
   private static void setupServer(String[] argv) throws Exception {
-    log.info("starting server setup");
+    CommandLine cli = parseCli(argv);
+    if (cli==null) {
+      return;
+    }
+    int port = -1;
+    try {
+      port = Integer.parseInt(cli.getOptionValue("p", "7100"));
+    } catch (NumberFormatException e) {
+      usage(createOptions(), "cannot parse as integer: `"
+            +cli.getOptionValue("p")+"'");
+      return;
+    }
+    
+    String kafkahostport = cli.getOptionValue("b", "localhost:9092");
+    log.info("contacting kafka server at "+kafkahostport);    
+    qw = new QueueWatcher(kafkahostport);
+    
     System.setProperty("org.eclipse.jetty.util.log.class",
                        "de.pifpafpuf.vecovi.JettyLog4jLogging");
 
     QueuedThreadPool threadPool = new QueuedThreadPool(4, 2);
+
+    log.info("starting server setup");
     server = new Server(threadPool);
 
+    log.info("Starting server on port "+port);
     ServerConnector http = new ServerConnector(server);
-    http.setPort(7100);
+    http.setPort(port);
     server.addConnector(http);
 
     ServletContextHandler scContext =
@@ -105,9 +141,15 @@ public class KafkaViewerServer {
     public void run() {
       try {
         log.info("asking server to stop");
-        server.stop();
+        if (server!=null) {
+          server.stop();
+        }
       } catch (Exception e) {
         log.error("stopping the server did not really go well", e);
+      }
+      if (qw!=null) {
+        log.info("asking the kafka log watcher to stop");
+        qw.shutdown();
       }
     }
   }
@@ -115,5 +157,43 @@ public class KafkaViewerServer {
   public static Logger getLogger() {
     StackTraceElement[] stack =  Thread.currentThread().getStackTrace();
     return Logger.getLogger(stack[2].getClassName());
+  }
+  /*+******************************************************************/
+  private static Options createOptions() {
+    Options opts = new Options();
+    Option hostport = 
+        Option.builder("b")
+        .longOpt("bootstrap-servers")
+        .argName("hostport")
+        .desc("bootstrap kafka servers in the same form as for the properties"
+            + ", defaults to localhost:9092")
+        .numberOfArgs(1)
+        .build()
+        ;
+    opts.addOption(hostport);
+    Option port =
+        Option.builder("p")
+        .argName("port")
+        .desc("port on which to start the kafka-watcher, defaults to 7100")
+        .numberOfArgs(1)
+        .build();
+    opts.addOption(port);
+    return opts;
+  }
+  private static CommandLine parseCli(String[] argv) {
+    Options opts = createOptions();
+    try {
+      return new DefaultParser().parse(opts, argv);
+    } catch (ParseException e) {
+      usage(opts, e.getMessage());
+      return null;
+    }
+  }
+  /*+******************************************************************/
+  private static void usage(Options opts, String message) {
+    HelpFormatter hf = new HelpFormatter();
+    hf.printHelp(KafkaViewerServer.class.getName(),
+                 "    start server to watch a Kafka server", opts, "", true); 
+    System.out.printf("%n%s%n", message);
   }
 }

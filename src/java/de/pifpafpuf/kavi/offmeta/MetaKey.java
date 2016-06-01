@@ -4,6 +4,9 @@ import java.nio.ByteBuffer;
 
 import org.apache.kafka.common.protocol.types.Type;
 
+/**
+ * see: https://github.com/apache/kafka/blob/trunk/core/src/main/scala/kafka/coordinator/GroupMetadataManager.scala
+ */
 public abstract class MetaKey {
   private static final short CURRENT_OFFSET_KEY_SCHEMA_VERSION = 1;
   private static final short CURRENT_GROUP_KEY_SCHEMA_VERSION = 2;

@@ -1,0 +1,1 @@
+/home/harald/work/Einkaufsliste/src/java/de/pifpafpuf/util/JettyLog4jLogging.java

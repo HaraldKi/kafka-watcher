@@ -24,25 +24,28 @@ public class OffsetMsgValue extends MsgValue {
   }
 
   public static OffsetMsgValue decode(byte[] data) {
+    if (data==null) {
+      return null;
+    }
     short version = -1;
-    String metadata = "no data";
+    String metadata = "";
     long offset = -1;
     long timestamp = -1;
     long expiresStamp = -1;
-    if (data!=null) {
-      ByteBuffer b = ByteBuffer.wrap(data);
-      version = b.getShort();
-      if (version>=0 && version<=1) {
-        offset = (long)Type.INT64.read(b);
-        metadata = (String)Type.STRING.read(b);
-        timestamp = (long)Type.INT64.read(b);
-      }
-      if (version==1) {
-        expiresStamp = (long)Type.INT64.read(b);
-      } else {
-        metadata = "wrong version information "+version+" ignored";
-      }
+
+    ByteBuffer b = ByteBuffer.wrap(data);
+    version = b.getShort();
+    if (version>=0 && version<=1) {
+      offset = (long)Type.INT64.read(b);
+      metadata = (String)Type.STRING.read(b);
+      timestamp = (long)Type.INT64.read(b);
     }
+    if (version==1) {
+      expiresStamp = (long)Type.INT64.read(b);
+    } else {
+      metadata = "wrong version information "+version+" ignored";
+    }
+
     return new OffsetMsgValue(version, metadata,
                               offset, timestamp, expiresStamp);
   }

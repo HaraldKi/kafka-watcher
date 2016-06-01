@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!-- DOCTYPE date SYSTEM "ant.dtd" -->
+<project name="kafka-watcher" default="compile" basedir=".">
+  <import file="../hkAntLib/javac.xml"/>
+  <import file="../hkAntLib/package.xml"/>
+  
+  <property name="version" value="1.0"/>
+  <property name="project.java.version" value="1.8"/>
+
+  <target name="compile">
+    <do-javac/>
+  </target>
+
+  <target name="jar" depends="compile">
+    <do-dist-jar/>
+  </target>
+
+  <target name="distzip" depends="jar">
+    <zip destfile="build/sitecontent/download/kafka-watcher-${version}.zip">
+      <zipfileset dir="build/sitecontent/download/"
+                  includes="kafka-watcher-${version}.jar"
+                  prefix="libs"/>
+      <fileset dir="libs" includes="**/*.jar"/>
+      <fileset dir="libs" includes="**/*.properties"/>
+      <fileset dir="." includes="static/**"/>
+      <zipfileset dir="src/scripts" includes="kafka-watcher" filemode="775"/>
+    </zip>
+  </target>
+</project>
