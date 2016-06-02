@@ -80,6 +80,7 @@ public class QueueWatcher {
   public List<ConsumerRecord<Object, byte[]>>
   readRecords(String topic, int offset)
   {
+    assignAllPartitions(kafcon); // may have new partitions
     setOffsets(topic, offset);
     final long WAIT = 1000;
     boolean timedout = false;
