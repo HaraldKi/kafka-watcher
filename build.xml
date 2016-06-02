@@ -16,14 +16,16 @@
   </target>
 
   <target name="distzip" depends="jar">
-    <zip destfile="build/sitecontent/download/kafka-watcher-${version}.zip">
+    <property name="d" value="kafka-watcher-${version}"/>
+    <zip destfile="build/sitecontent/download/${d}.zip">
       <zipfileset dir="build/sitecontent/download/"
                   includes="kafka-watcher-${version}.jar"
-                  prefix="libs"/>
-      <fileset dir="libs" includes="**/*.jar"/>
-      <fileset dir="libs" includes="**/*.properties"/>
-      <fileset dir="." includes="static/**"/>
-      <zipfileset dir="src/scripts" includes="kafka-watcher" filemode="775"/>
+                  prefix="${d}/libs"/>
+      <zipfileset dir="libs" includes="**/*.jar" prefix="${d}/libs"/>
+      <zipfileset dir="libs" includes="**/*.properties" prefix="${d}/libs"/>
+      <zipfileset dir="." includes="static/**" prefix="${d}"/>
+      <zipfileset dir="src/scripts" includes="kafka-watcher" filemode="775"
+                  prefix="${d}"/>
     </zip>
   </target>
 </project>

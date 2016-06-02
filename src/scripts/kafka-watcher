@@ -1,6 +1,6 @@
 #!/bin/sh
-$ME=$(readlink -f "$0")
-$MYDIR=$(dirname "$me")
+ME=$(readlink -f "$0")
+MYDIR=$(dirname "$me")
 cd "$MYDIR"
 
 java -cp 'libs:libs/*:libs/Jetty/*' de.pifpafpuf.kavi.KafkaViewerServer "$@"
