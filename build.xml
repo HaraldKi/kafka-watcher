@@ -3,7 +3,16 @@
 <project name="kafka-watcher" default="compile" basedir=".">
   <import file="../hkAntLib/javac.xml"/>
   <import file="../hkAntLib/package.xml"/>
-  
+
+  <!-- use the following instead of the above if needed 
+  <import>
+    <url url="https://raw.githubusercontent.com/HaraldKi/hkAntLib/master/javac.xml"/>
+  </import>
+  <import>
+   <url url="https://raw.githubusercontent.com/HaraldKi/hkAntLib/master/package.xml"/>
+  </import>
+  -->
+
   <property name="version" value="1.0"/>
   <property name="project.java.version" value="1.8"/>
 
