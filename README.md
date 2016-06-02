@@ -1,9 +1,38 @@
-kafka-watcher --- a few classes to watch Kafka consumers and the tip of the log
+kafka-watcher --- watch a Kafka log
 ======
 
-Work in progress.
+What is it?
+===
 
-There is not yet a build file or similar. The file
-`src/java/de/pifpafpuf/kavi/QueueWatcher.java` contains the important
-bits of how to peek into the `__consumer_offsets` topic to see which
-consumers are active. No dependencies on Scala, just Java.
+Simple web UI to quickly check the state of your Kafka logs.
+
+- which topics with how many partitions?
+- current message keys at the head of a topic/partition
+- state of the consumer groups
+
+How to use it?
+===
+
+How to compile it yourself?
+===
+
+Now ivy/maving integration yet. For the brave, here is the list of libs used:
+```
+libs/
+libs/slf4j-log4j12-1.7.6.jar
+libs/kafka-clients-0.9.0.1.jar
+libs/log4j-1.2.17.jar
+libs/Jetty
+libs/Jetty/servlet-api-3.1.jar
+libs/Jetty/jetty-rewrite-9.3.6.v20151106.jar
+libs/Jetty/jetty-io-9.3.6.v20151106.jar
+libs/Jetty/jetty-server-9.3.6.v20151106.jar
+libs/Jetty/jetty-http-9.3.6.v20151106.jar
+libs/Jetty/jetty-security-9.3.6.v20151106.jar
+libs/Jetty/jetty-continuation-9.3.6.v20151106.jar
+libs/Jetty/jetty-util-9.3.6.v20151106.jar
+libs/Jetty/jetty-servlet-9.3.6.v20151106.jar
+libs/commons-cli-1.3.1.jar
+libs/htmlJgen-1.4.0.jar
+libs/slf4j-api-1.7.6.jar
+```
