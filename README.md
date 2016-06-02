@@ -1,8 +1,7 @@
-kafka-watcher --- watch a Kafka log
-======
+# kafka-watcher --- watch a Kafka log
 
-What is it?
-===
+## What is it?
+
 
 Simple web UI to quickly check the state of your Kafka logs.
 
@@ -10,13 +9,19 @@ Simple web UI to quickly check the state of your Kafka logs.
 - current message keys at the head of a topic/partition
 - state of the consumer groups
 
-How to use it?
-===
+## How to use it?
 
-How to compile it yourself?
-===
+On *nix systems, unzip the release zip and run `kafka-watcher -h`. On
+windows systems, change to the unzipped folder and run (untested):
 
-Now ivy/maving integration yet. For the brave, here is the list of libs used:
+```
+java -cp 'libs;libs/*;libs/Jetty/*' de.pifpafpuf.kavi.KafkaViewerServer -h
+```
+
+## How to compile it yourself?
+
+There is no ivy/maving integration yet. For the brave, here is the list of libs used:
+
 ```
 libs/
 libs/slf4j-log4j12-1.7.6.jar
@@ -36,3 +41,5 @@ libs/commons-cli-1.3.1.jar
 libs/htmlJgen-1.4.0.jar
 libs/slf4j-api-1.7.6.jar
 ```
+
+Alternatively check the contents of the `libs` folder in the release zip.
