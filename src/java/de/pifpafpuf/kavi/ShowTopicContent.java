@@ -16,6 +16,7 @@ import de.pifpafpuf.kavi.offmeta.GroupMsgValue;
 import de.pifpafpuf.kavi.offmeta.MsgValue;
 import de.pifpafpuf.kavi.offmeta.OffsetMetaKey;
 import de.pifpafpuf.kavi.offmeta.OffsetMsgValue;
+import de.pifpafpuf.web.html.EmptyElem;
 import de.pifpafpuf.web.html.Html;
 import de.pifpafpuf.web.html.HtmlPage;
 import de.pifpafpuf.web.urlparam.IntegerCodec;
@@ -29,13 +30,21 @@ public class ShowTopicContent  extends AllServletsParent {
       new UrlParamCodec<>("topic", StringCodec.INSTANCE);
   public static final UrlParamCodec<Integer> pOffset =
       new UrlParamCodec<>("offset", IntegerCodec.INSTANCE);
-
+  public static final UrlParamCodec<Integer> pRefreshSecs = 
+      new UrlParamCodec<>("refreshsecs", 
+                          new IntegerCodec(3, Integer.MAX_VALUE));
   /*+******************************************************************/
   @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp) {
 
     HtmlPage page = initPage("show topic content");
-
+    int refreshSecs = pRefreshSecs.fromFirst(req, -1);
+    if (refreshSecs>0) {
+      EmptyElem meta = new EmptyElem("meta");
+      meta.setAttr("http-equiv", "refresh");
+      meta.setAttr("content", Integer.toString(refreshSecs));
+      page.addHeadElem(meta);
+    }
     String topicName = pTopic.fromFirst(req, "");
     int offset = pOffset.fromFirst(req, -5);
     QueueWatcher qw = KafkaViewerServer.getQueueWatcher();
@@ -43,6 +52,7 @@ public class ShowTopicContent  extends AllServletsParent {
     List<ConsumerRecord<Object, byte[]>> recs =
         qw.readRecords(topicName, offset);
 
+    page.addContent(renderRefreshButton(refreshSecs, topicName, offset));
     page.addContent(renderHeader(topicName));
     page.addContent(renderTable(recs));
     sendPage(resp, page);
@@ -52,6 +62,25 @@ public class ShowTopicContent  extends AllServletsParent {
     return new Html("h1")
         .addText("Latest keys from topic:")
         .addText(topic);
+  }
+  /*+******************************************************************/
+  private Html renderRefreshButton(int refreshSecs, String topic, int offset) {
+    final int newRefresh = 10;
+    StringBuilder sb = new StringBuilder(200);
+    sb.append(ShowTopicContent.URL).append('?');
+    pTopic.appendToUrl(sb, topic);
+    pOffset.appendToUrl(sb, offset);
+
+    Html a = new Html("a");
+    if (refreshSecs<0) {
+      pRefreshSecs.appendToUrl(sb, newRefresh);
+      a.setAttr("href", sb.toString());
+      a.addText("start refresh every "+newRefresh+" seconds");
+    } else {
+      a.setAttr("href", sb.toString());
+      a.addText("stop auto-refresh");
+    }
+    return a;
   }
   /*+******************************************************************/
   private Html renderTable(List<ConsumerRecord<Object, byte[]>> recs) {
@@ -99,8 +128,8 @@ public class ShowTopicContent  extends AllServletsParent {
         ObjectInputStream oin = new ObjectInputStream(bin);
         ) {
       return oin.readObject().toString();
-    } catch( IOException | ClassNotFoundException e ) {
-      return e.getMessage();
+    } catch (IOException | ClassNotFoundException e) {
+      return e.getClass().getName()+": "+e.getMessage();
     } 
   }
   /*+******************************************************************/
