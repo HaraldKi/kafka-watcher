@@ -62,6 +62,7 @@ public class ShowTopics  extends AllServletsParent {
         sb.append(ShowTopicContent.URL).append('?');
         ShowTopicContent.pTopic.appendToUrl(sb, topic);
         ShowTopicContent.pOffset.appendToUrl(sb, -5l);
+        ShowTopicContent.pCasefold.appendToUrl(sb, true);
 
         row.add("td")
         .add("a")

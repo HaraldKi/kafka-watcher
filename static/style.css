@@ -48,3 +48,16 @@ table.withdata {
 .emsg {
   color: red;
 }
+
+.grepform {
+  border: 2px solid grey;
+  padding: 2px;
+  margin-bottom: 2px;
+}
+
+.grepform > div {
+  display: inline-block;
+}
+.grepform > *:last-child {
+  display: block;
+}

@@ -100,8 +100,10 @@ public class QueueWatcher {
       ConsumerRecords<Object, byte[]> recs = kafcon.poll(WAIT);
       long later = System.currentTimeMillis();
       timedout = now+WAIT<=later;
-      log.info("got "+recs.count()+" records : after "+(later-now)+"ms"
-          + " for "+recs.partitions()+", timedout="+timedout);
+      if (log.isDebugEnabled()) {
+        log.debug("got "+recs.count()+" records : after "+(later-now)+"ms"
+            + " for "+recs.partitions()+", timedout="+timedout);
+      }
       roundRobinExtract(result, recs, maxRecs, m);
     }
     return result;

@@ -20,6 +20,7 @@ import de.pifpafpuf.kavi.offmeta.OffsetMetaKey;
 import de.pifpafpuf.kavi.offmeta.OffsetMsgValue;
 import de.pifpafpuf.web.html.Html;
 import de.pifpafpuf.web.html.HtmlPage;
+import de.pifpafpuf.web.urlparam.BooleanCodec;
 import de.pifpafpuf.web.urlparam.IntegerCodec;
 import de.pifpafpuf.web.urlparam.LongCodec;
 import de.pifpafpuf.web.urlparam.StringCodec;
@@ -41,6 +42,10 @@ public class ShowTopicContent  extends AllServletsParent {
   public static final UrlParamCodec<Integer> pMax =
       new UrlParamCodec<>("maxrecs", 
                           new IntegerCodec(1, Integer.MAX_VALUE));
+  
+  public static final UrlParamCodec<Boolean> pCasefold =
+      new UrlParamCodec<>("icase", BooleanCodec.INSTANCE);
+  
   /*+******************************************************************/
   @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp) {
@@ -52,11 +57,13 @@ public class ShowTopicContent  extends AllServletsParent {
     long offset = pOffset.fromFirst(req, -5l);
     int maxRecs = pMax.fromFirst(req, 5);
     
+    boolean caseFold = pCasefold.fromFirst(req, false);
     Pattern pattern = null;
     String regex = pRegex.fromFirst(req, ".");
     String eMsg = null;
+    int flags = caseFold ? Pattern.CASE_INSENSITIVE : 0;
     try {
-      pattern = Pattern.compile(regex);
+      pattern = Pattern.compile(regex, flags);
     } catch (PatternSyntaxException e) {
       eMsg = e.getMessage();
     }
@@ -68,14 +75,15 @@ public class ShowTopicContent  extends AllServletsParent {
 
     page.addContent(renderRefreshButton(refreshSecs, topicName, offset));
     page.addContent(renderHeader(topicName));
-    page.addContent(renderForm(topicName, regex, eMsg, offset, maxRecs));
+    page.addContent(renderForm(topicName, regex, caseFold, 
+                               eMsg, offset, maxRecs));
     page.addContent(renderTable(recs));
     sendPage(resp, page);
   }
   /*+******************************************************************/
   private Html renderHeader(String topic) {
     return new Html("h1")
-        .addText("Latest keys from topic:")
+        .addText("Keys from topic:")
         .addText(topic);
   }
   /*+******************************************************************/
@@ -89,11 +97,12 @@ public class ShowTopicContent  extends AllServletsParent {
     return a;
   }
   /*+******************************************************************/
-  private Html renderForm(String topic, String regex, 
+  private Html renderForm(String topic, String regex, boolean caseFold, 
                           String eMsg, long offset, int maxRecs) {
     Html form = new Html("form")
         .setAttr("action", URL)
-        .setAttr("method", "GET");
+        .setAttr("method", "GET")
+        .setAttr("class", "grepform");
 
     Html hiddenTopic = form.add("input")
         .setAttr("type", "hidden");
@@ -103,10 +112,20 @@ public class ShowTopicContent  extends AllServletsParent {
           .addText("regular expression could not be compiled:");
       p.add("span").setAttr("class", "emsg").addText(eMsg);
     }
+    
     Html regexDiv = form.add("div");
     regexDiv.add("div").addText("Regex");
     Html regexInput = regexDiv.add("input").setAttr("type", "text");
     pRegex.setParam(regexInput, regex);
+    
+    Html casefoldDiv = form.add("div");
+    casefoldDiv.add("div").addText("case insensitive");
+    Html casefoldInput = casefoldDiv.add("input")
+        .setAttr("type", "checkbox");
+    pCasefold.setParam(casefoldInput, true);
+    if (caseFold) {
+      casefoldInput.setAttr("checked", "");
+    }
     
     Html offsetDiv = form.add("div");
     offsetDiv.add("div").addText("Offset");
