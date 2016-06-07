@@ -14,21 +14,34 @@ import de.pifpafpuf.kavi.offmeta.OffsetMsgValue;
 import de.pifpafpuf.web.html.EmptyElem;
 import de.pifpafpuf.web.html.Html;
 import de.pifpafpuf.web.html.HtmlPage;
+import de.pifpafpuf.web.urlparam.IntegerCodec;
+import de.pifpafpuf.web.urlparam.UrlParamCodec;
 
 public class ShowConsumerOffsets  extends AllServletsParent {
   public static final String URL = "/offsets";
-  
+  public static final UrlParamCodec<Integer> pRefreshSecs =
+      new UrlParamCodec<>("refreshsecs",
+                          new IntegerCodec(1, Integer.MAX_VALUE));
   @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp) {
-    
     HtmlPage page = initPage("consumer offsets");
+    int refreshSecs = pRefreshSecs.fromFirst(req, -1);
+    addRefreshMeta(page, refreshSecs);
+    
     QueueWatcher qw = KafkaViewerServer.getQueueWatcher();
     qw.rewindOffsets(100);
     Map<String, OffsetInfo> offs = qw.getLastOffsets(200);
 
+    page.addContent(renderRefresh(refreshSecs));
     page.addContent(renderHeader());
     page.addContent(renderTable(offs));
     sendPage(resp, page);
+  }
+  /*+******************************************************************/
+  private EmptyElem renderRefresh(int refreshSecs) {
+    StringBuilder sb = new StringBuilder(200);
+    sb.append(URL).append('?');
+    return renderRefreshButton(refreshSecs, sb, pRefreshSecs);
   }
   /*+********************************************************** ********/
   private Html renderHeader() {

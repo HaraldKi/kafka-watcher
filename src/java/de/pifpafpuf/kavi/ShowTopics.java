@@ -40,48 +40,57 @@ public class ShowTopics  extends AllServletsParent {
     
     Html tr = thead.add("tr");
     tr.add("th").addText("topic name");
-    tr.add("th").addEncoded("# par-<br/>titions");
-    tr.add("th").addText("head offsets");
+    tr.add("th").addEncoded("parti-<br/>tion");
+//    tr.add("th").addText("first offset")
+//    .setAttr("title", "unreliable data");
+    tr.add("th").addText("head offset");
 
     List<String> sortedTopics = sortTopics(topics.keySet());
     for (String topicName : sortedTopics) {
-      Html topicRow = renderTopicRow(topicName, topics.get(topicName));
-      tbody.add(topicRow);
+      renderTopic(tbody, topicName, topics.get(topicName));
     }
     return table;
   }
 
-  private Html renderTopicRow(String topicName, List<PartitionMeta> pmeta) {
-    Html row = new Html("tr");
-
-    StringBuilder sb = new StringBuilder(200);
-    sb.append(ShowTopicContent.URL).append('?');
-    ShowTopicContent.pTopic.appendToUrl(sb, topicName);
-    ShowTopicContent.pOffset.appendToUrl(sb, -5);
-
-    row.add("td")
-    .add("a")
-    .setAttr("href",  sb.toString())
-    .addText(topicName);
-
-    row.add("td")
-    .setAttr("class", "ral")
-    .addText(Integer.toString(pmeta.size()));
-    Html offsets = new Html("td");
-
+  private void renderTopic(Html tbody, String topic, List<PartitionMeta> pmeta) {
     pmeta.sort((x,y) -> x.partition-y.partition);
+    int partition = 0;
     for (PartitionMeta pm : pmeta) {
-      offsets.addText(Long.toString(pm.headOffset));
-    }
-    row.add(offsets);
+      Html row = new Html("tr");
+      if (partition==0) {
+        StringBuilder sb = new StringBuilder(200);
+        sb.append(ShowTopicContent.URL).append('?');
+        ShowTopicContent.pTopic.appendToUrl(sb, topic);
+        ShowTopicContent.pOffset.appendToUrl(sb, -5l);
 
-    return row;
+        row.add("td")
+        .add("a")
+        .setAttr("href",  sb.toString())
+        .addText(topic);
+      } else {
+        row.add("td");
+      }
+      row.add("td")
+      .setAttr("class", "ral")
+      .addText(Integer.toString(partition++));
+
+//      Html offset = new Html("td");
+//      offset.addText(Long.toString(pm.firstOffset));
+//      row.add(offset);
+
+      Html offset = new Html("td");
+      offset.addText(Long.toString(pm.headOffset));
+      row.add(offset);
+      tbody.add(row);
+    }
   }
 
   private List<String> sortTopics(Set<String> topicNames) {
     List<String> result = new ArrayList<>();
     result.addAll(topicNames);
-    Collections.sort(result);
+    Collections.sort(result,
+                     (x,y) -> x.equals(QueueWatcher.TOPIC_OFFSET) ? 1
+                         : x.compareTo(y));
     return result;
   }
 }

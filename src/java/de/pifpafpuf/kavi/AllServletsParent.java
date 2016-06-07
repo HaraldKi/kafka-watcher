@@ -15,6 +15,7 @@ import org.apache.log4j.Logger;
 import de.pifpafpuf.web.html.EmptyElem;
 import de.pifpafpuf.web.html.Html;
 import de.pifpafpuf.web.html.HtmlPage;
+import de.pifpafpuf.web.urlparam.UrlParamCodec;
 
 public class AllServletsParent extends HttpServlet {
   private static final Logger log = KafkaViewerServer.getLogger();
@@ -64,5 +65,29 @@ public class AllServletsParent extends HttpServlet {
     return dtf.format(d);
   }
   /*+******************************************************************/
-
+  protected final void addRefreshMeta(HtmlPage page, int refreshSecs) {
+    if (refreshSecs>0) {
+      EmptyElem meta = new EmptyElem("meta");
+      meta.setAttr("http-equiv", "refresh");
+      meta.setAttr("content", Integer.toString(refreshSecs));
+      page.addHeadElem(meta);
+    }
+  }
+  /*+******************************************************************/
+  protected final Html 
+  renderRefreshButton(int refreshSecs, StringBuilder sb,
+                      UrlParamCodec<Integer> pRefreshSecs) 
+  {
+    final int newRefresh = 10;
+    Html a = new Html("a");
+    if (refreshSecs<0) {
+      pRefreshSecs.appendToUrl(sb, newRefresh);
+      a.setAttr("href", sb.toString());
+      a.addText("start refresh every "+newRefresh+" seconds");
+    } else {
+      a.setAttr("href", sb.toString());
+      a.addText("stop auto-refresh");
+    }
+    return a;
+  }
 }

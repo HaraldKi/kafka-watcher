@@ -12,7 +12,6 @@
    <url url="https://raw.githubusercontent.com/HaraldKi/hkAntLib/master/package.xml"/>
   </import>
   -->
-
   <property name="version" value="1.0"/>
   <property name="project.java.version" value="1.8"/>
 
@@ -31,10 +30,21 @@
                   includes="kafka-watcher-${version}.jar"
                   prefix="${d}/libs"/>
       <zipfileset dir="libs" includes="**/*.jar" prefix="${d}/libs"/>
-      <zipfileset dir="libs" includes="**/*.properties" prefix="${d}/libs"/>
+      <zipfileset dir="src/conf" includes="*.properties" prefix="${d}/libs"/>
       <zipfileset dir="." includes="static/**" prefix="${d}"/>
       <zipfileset dir="src/scripts" includes="kafka-watcher" filemode="775"
                   prefix="${d}"/>
     </zip>
+  </target>
+
+  <target name="start" depends="compile">
+    <java classname="de.pifpafpuf.kavi.KafkaViewerServer" fork="true">
+      <classpath>
+        <pathelement location="libs/*"/>
+        <pathelement location="libs/Jetty/*" />
+        <pathelement location="build/classes"/>
+        <pathelement location="src/conf"/>
+      </classpath>
+    </java>
   </target>
 </project>

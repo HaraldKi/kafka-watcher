@@ -44,3 +44,7 @@ table.withdata {
   padding: 4px;
   border-radius: 3px;
 }
+
+.emsg {
+  color: red;
+}

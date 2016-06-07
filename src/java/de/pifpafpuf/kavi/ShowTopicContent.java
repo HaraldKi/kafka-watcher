@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -16,10 +18,10 @@ import de.pifpafpuf.kavi.offmeta.GroupMsgValue;
 import de.pifpafpuf.kavi.offmeta.MsgValue;
 import de.pifpafpuf.kavi.offmeta.OffsetMetaKey;
 import de.pifpafpuf.kavi.offmeta.OffsetMsgValue;
-import de.pifpafpuf.web.html.EmptyElem;
 import de.pifpafpuf.web.html.Html;
 import de.pifpafpuf.web.html.HtmlPage;
 import de.pifpafpuf.web.urlparam.IntegerCodec;
+import de.pifpafpuf.web.urlparam.LongCodec;
 import de.pifpafpuf.web.urlparam.StringCodec;
 import de.pifpafpuf.web.urlparam.UrlParamCodec;
 
@@ -28,32 +30,45 @@ public class ShowTopicContent  extends AllServletsParent {
 
   public static final UrlParamCodec<String> pTopic =
       new UrlParamCodec<>("topic", StringCodec.INSTANCE);
-  public static final UrlParamCodec<Integer> pOffset =
-      new UrlParamCodec<>("offset", IntegerCodec.INSTANCE);
-  public static final UrlParamCodec<Integer> pRefreshSecs = 
-      new UrlParamCodec<>("refreshsecs", 
-                          new IntegerCodec(3, Integer.MAX_VALUE));
+  public static final UrlParamCodec<Long> pOffset =
+      new UrlParamCodec<>("offset", LongCodec.INSTANCE);
+  public static final UrlParamCodec<Integer> pRefreshSecs =
+      new UrlParamCodec<>("refreshsecs",
+                          new IntegerCodec(1, Integer.MAX_VALUE));  
+  public static final UrlParamCodec<String> pRegex = 
+      new UrlParamCodec<>("regex", StringCodec.INSTANCE);
+
+  public static final UrlParamCodec<Integer> pMax =
+      new UrlParamCodec<>("maxrecs", 
+                          new IntegerCodec(1, Integer.MAX_VALUE));
   /*+******************************************************************/
   @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp) {
 
     HtmlPage page = initPage("show topic content");
     int refreshSecs = pRefreshSecs.fromFirst(req, -1);
-    if (refreshSecs>0) {
-      EmptyElem meta = new EmptyElem("meta");
-      meta.setAttr("http-equiv", "refresh");
-      meta.setAttr("content", Integer.toString(refreshSecs));
-      page.addHeadElem(meta);
-    }
+    addRefreshMeta(page, refreshSecs);
     String topicName = pTopic.fromFirst(req, "");
-    int offset = pOffset.fromFirst(req, -5);
+    long offset = pOffset.fromFirst(req, -5l);
+    int maxRecs = pMax.fromFirst(req, 5);
+    
+    Pattern pattern = null;
+    String regex = pRegex.fromFirst(req, ".");
+    String eMsg = null;
+    try {
+      pattern = Pattern.compile(regex);
+    } catch (PatternSyntaxException e) {
+      eMsg = e.getMessage();
+    }
+    
     QueueWatcher qw = KafkaViewerServer.getQueueWatcher();
-
+    
     List<ConsumerRecord<Object, byte[]>> recs =
-        qw.readRecords(topicName, offset);
+        qw.readRecords(topicName, offset, maxRecs, pattern);
 
     page.addContent(renderRefreshButton(refreshSecs, topicName, offset));
     page.addContent(renderHeader(topicName));
+    page.addContent(renderForm(topicName, regex, eMsg, offset, maxRecs));
     page.addContent(renderTable(recs));
     sendPage(resp, page);
   }
@@ -64,23 +79,62 @@ public class ShowTopicContent  extends AllServletsParent {
         .addText(topic);
   }
   /*+******************************************************************/
-  private Html renderRefreshButton(int refreshSecs, String topic, int offset) {
-    final int newRefresh = 10;
+  private Html renderRefreshButton(int refreshSecs, String topic, long offset) {
     StringBuilder sb = new StringBuilder(200);
     sb.append(ShowTopicContent.URL).append('?');
     pTopic.appendToUrl(sb, topic);
     pOffset.appendToUrl(sb, offset);
 
-    Html a = new Html("a");
-    if (refreshSecs<0) {
-      pRefreshSecs.appendToUrl(sb, newRefresh);
-      a.setAttr("href", sb.toString());
-      a.addText("start refresh every "+newRefresh+" seconds");
-    } else {
-      a.setAttr("href", sb.toString());
-      a.addText("stop auto-refresh");
-    }
+    Html a = renderRefreshButton(refreshSecs, sb, pRefreshSecs);
     return a;
+  }
+  /*+******************************************************************/
+  private Html renderForm(String topic, String regex, 
+                          String eMsg, long offset, int maxRecs) {
+    Html form = new Html("form")
+        .setAttr("action", URL)
+        .setAttr("method", "GET");
+
+    Html hiddenTopic = form.add("input")
+        .setAttr("type", "hidden");
+    pTopic.setParam(hiddenTopic, topic);
+    if (eMsg!=null) {
+      Html p = form.add("p")
+          .addText("regular expression could not be compiled:");
+      p.add("span").setAttr("class", "emsg").addText(eMsg);
+    }
+    Html regexDiv = form.add("div");
+    regexDiv.add("div").addText("Regex");
+    Html regexInput = regexDiv.add("input").setAttr("type", "text");
+    pRegex.setParam(regexInput, regex);
+    
+    Html offsetDiv = form.add("div");
+    offsetDiv.add("div").addText("Offset");
+    Html offsetInput = offsetDiv.add("input")
+    .setAttr("type", "text")
+    .setAttr("title", "use negative offsets to count from the head of the log");
+    pOffset.setParam(offsetInput, offset);
+    
+    Html maxDiv = form.add("div");
+    maxDiv.add("div").addText("max records to fetch");
+    Html maxSelect = maxDiv.add("select")
+        .setAttr("name", "maxrecs");
+    for (int maxOpt : new int[] {5, 10, 20, 50, 100}) {
+      Html option = maxSelect.add("option")
+          .setAttr("value", Integer.toString(maxOpt))
+          .addText(Integer.toString(maxOpt));
+      if (maxOpt>=maxRecs) {
+        option.setAttr("selected", "");
+        maxRecs = Integer.MAX_VALUE;
+      }
+    }
+    
+    form.add("input")
+    .setAttr("type", "submit")
+    .setAttr("name", "submit")
+    .setAttr("value", "grep");;
+    
+    return form;
   }
   /*+******************************************************************/
   private Html renderTable(List<ConsumerRecord<Object, byte[]>> recs) {
@@ -130,7 +184,7 @@ public class ShowTopicContent  extends AllServletsParent {
       return oin.readObject().toString();
     } catch (IOException | ClassNotFoundException e) {
       return e.getClass().getName()+": "+e.getMessage();
-    } 
+    }
   }
   /*+******************************************************************/
   private enum RecSorter implements Comparator<ConsumerRecord<?, ?>> {
@@ -138,7 +192,7 @@ public class ShowTopicContent  extends AllServletsParent {
 
     @Override
     public int compare(ConsumerRecord<?,?> o1, ConsumerRecord<?,?> o2) {
-      //TODO: with 0.10 we will be able to sort by timestamp 
+      //TODO: with 0.10 we will be able to sort by timestamp
 //      if (o1.timestamp() < o2.timestamp()) {
 //        return -1;
 //      }
