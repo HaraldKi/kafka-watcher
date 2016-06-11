@@ -2,10 +2,9 @@ package de.pifpafpuf.kavi;
 
 import java.io.IOException;
 import java.io.Writer;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.TimeZone;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletResponse;
@@ -19,10 +18,16 @@ import de.pifpafpuf.web.urlparam.UrlParamCodec;
 
 public class AllServletsParent extends HttpServlet {
   private static final Logger log = KafkaViewerServer.getLogger();
-
-  private static final ZoneId UTC = ZoneId.of("UTC");
-  private static final DateTimeFormatter dtf =
-      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+  private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+  private static final ThreadLocal<DateFormat> df =
+      new ThreadLocal<DateFormat>() {
+    @Override
+    protected DateFormat initialValue() {
+      SimpleDateFormat result = new SimpleDateFormat(DATE_FORMAT);
+      result.setTimeZone(TimeZone.getTimeZone("UTC"));
+      return result;
+    }
+  };
 
   void sendPage(HttpServletResponse resp, HtmlPage page) {
     resp.setContentType("text/html");
@@ -51,7 +56,7 @@ public class AllServletsParent extends HttpServlet {
     div.add("a")
     .setAttr("href", ShowTopics.URL)
     .addText("Topics");
-    
+
     div.add("a")
     .setAttr("href", ShowConsumerOffsets.URL)
     .addText("Offsets")
@@ -60,9 +65,7 @@ public class AllServletsParent extends HttpServlet {
   }
   /*+******************************************************************/
   protected final String dateFormat(long timestamp) {
-    Instant stamp = Instant.ofEpochMilli(timestamp);
-    ZonedDateTime d = ZonedDateTime.ofInstant(stamp, UTC);
-    return dtf.format(d);
+    return df.get().format(timestamp);
   }
   /*+******************************************************************/
   protected final void addRefreshMeta(HtmlPage page, int refreshSecs) {
@@ -74,9 +77,9 @@ public class AllServletsParent extends HttpServlet {
     }
   }
   /*+******************************************************************/
-  protected final Html 
+  protected final Html
   renderRefreshButton(int refreshSecs, StringBuilder sb,
-                      UrlParamCodec<Integer> pRefreshSecs) 
+                      UrlParamCodec<Integer> pRefreshSecs)
   {
     final int newRefresh = 10;
     Html a = new Html("a");

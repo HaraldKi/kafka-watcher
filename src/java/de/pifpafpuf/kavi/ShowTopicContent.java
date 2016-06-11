@@ -3,6 +3,7 @@ package de.pifpafpuf.kavi;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -160,7 +161,7 @@ public class ShowTopicContent  extends AllServletsParent {
     Html table = new Html("table").setAttr("class", "records withdata");
     Html thead = table.add("thead");
 
-    recs.sort(RecSorter.INSTANCE);
+    Collections.sort(recs, RecSorter.INSTANCE);
     Html tr =  new Html("tr").setAttr("class", "recordrow recordrowhead");
     tr.add("th").addText("created (UTC)");
     tr.add("th").addText("parti\u00adtion");

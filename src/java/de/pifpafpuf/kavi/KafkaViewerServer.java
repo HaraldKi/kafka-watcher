@@ -58,7 +58,7 @@ public class KafkaViewerServer {
     }
     int port = -1;
     try {
-      port = Integer.parseInt(cli.getOptionValue("p", "7100"));
+      port = Integer.parseInt(cli.getOptionValue("p", "7311"));
     } catch (NumberFormatException e) {
       usage(createOptions(), "cannot parse as integer: `"
             +cli.getOptionValue("p")+"'");
@@ -174,7 +174,7 @@ public class KafkaViewerServer {
     Option port =
         Option.builder("p")
         .argName("port")
-        .desc("port on which to start the kafka-watcher, defaults to 7100")
+        .desc("port on which to start the kafka-watcher, defaults to 7311")
         .numberOfArgs(1)
         .build();
     opts.addOption(port);

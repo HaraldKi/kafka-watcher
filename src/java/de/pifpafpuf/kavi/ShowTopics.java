@@ -2,6 +2,7 @@ package de.pifpafpuf.kavi;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,9 +52,19 @@ public class ShowTopics  extends AllServletsParent {
     }
     return table;
   }
-
+  /*+******************************************************************/
+  private static final 
+  Comparator<PartitionMeta> byPartition = new Comparator<PartitionMeta>() {
+    @Override
+    public int compare(PartitionMeta pm1, PartitionMeta pm2) {
+      if (pm1.partition<pm2.partition) return -1;
+      if (pm1.partition>pm2.partition) return 1;
+      return 0;
+    }    
+  };
+  
   private void renderTopic(Html tbody, String topic, List<PartitionMeta> pmeta) {
-    pmeta.sort((x,y) -> x.partition-y.partition);
+    Collections.sort(pmeta, byPartition);
     int partition = 0;
     for (PartitionMeta pm : pmeta) {
       Html row = new Html("tr");
@@ -85,13 +96,20 @@ public class ShowTopics  extends AllServletsParent {
       tbody.add(row);
     }
   }
-
+  /*+******************************************************************/
+  private static final Comparator<String> 
+  CONSUMER_OFFSET_LAST = new Comparator<String>() {
+    @Override
+    public int compare(String s1, String s2) {
+      if (QueueWatcher.TOPIC_OFFSET.equals(s1)) return 1;
+      if (QueueWatcher.TOPIC_OFFSET.equals(s2)) return -1;
+      return s1.compareTo(s2);
+    }
+  };
   private List<String> sortTopics(Set<String> topicNames) {
     List<String> result = new ArrayList<>();
     result.addAll(topicNames);
-    Collections.sort(result,
-                     (x,y) -> x.equals(QueueWatcher.TOPIC_OFFSET) ? 1
-                         : x.compareTo(y));
+    Collections.sort(result, CONSUMER_OFFSET_LAST);
     return result;
   }
 }

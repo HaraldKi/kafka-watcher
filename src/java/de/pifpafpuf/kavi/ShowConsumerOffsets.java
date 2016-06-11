@@ -1,6 +1,7 @@
 package de.pifpafpuf.kavi;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +28,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     HtmlPage page = initPage("consumer offsets");
     int refreshSecs = pRefreshSecs.fromFirst(req, -1);
     addRefreshMeta(page, refreshSecs);
-    
+
     QueueWatcher qw = KafkaViewerServer.getQueueWatcher();
     qw.rewindOffsets(100);
     Map<String, OffsetInfo> offs = qw.getLastOffsets(200);
@@ -62,14 +63,14 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     thead.add("th").addText("lag");
     thead.add("th").addText("expires (UTC)");
     thead.add("th").addText("dead");
-    
+
     Html tbody = table.add("tbody");
-    
+
     List<OffsetInfo> infos = new ArrayList<>(offs.size());
     infos.addAll(offs.values());
-    infos.sort(CommitstampSorter.INSTANCE);
-    
-    
+    Collections.sort(infos, CommitstampSorter.INSTANCE);
+
+
     for (OffsetInfo oi : infos) {
       OffsetMetaKey ok = oi.key;
       OffsetMsgValue ov = oi.value;
@@ -83,7 +84,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
       tr.add("td")
       .addText(Integer.toString(ok.partition))
       .setAttr("class", "ral");
-      
+
       tr.add("td")
       .addText(ov!=null ? Long.toString(ov.offset) : "")
       .setAttr("class", "ral")
@@ -103,7 +104,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     }
     return table;
   }
-  
+
   private enum CommitstampSorter implements Comparator<OffsetInfo> {
     INSTANCE;
 
