@@ -37,6 +37,8 @@
     </zip>
   </target>
 
+  <target name="package" depends="jar, distzip"/>
+
   <target name="start" depends="compile">
     <java classname="de.pifpafpuf.kavi.KafkaViewerServer" fork="true">
       <classpath>
