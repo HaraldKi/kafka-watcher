@@ -45,3 +45,4 @@ libs/slf4j-api-1.7.6.jar
 Alternatively check the contents of the `libs` folder in the release zip.
 
 The build.xml makes use of https://github.com/HaraldKi/hkAntLib .
+The HTMLis rendered with [htmlJgen](https://github.com/HaraldKi/htmlJgen).
