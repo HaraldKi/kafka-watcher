@@ -3,10 +3,10 @@
 ## What is it?
 
 
-Simple web UI to quickly check the state of your Kafka logs.
+Simple web UI to check the state of your Kafka logs.
 
 - which topics with how many partitions?
-- current message keys at the head of a topic/partition
+- grep through message keys
 - state of the consumer groups
 
 ## How to use it?
@@ -20,7 +20,7 @@ java -cp 'libs;libs/*;libs/Jetty/*' de.pifpafpuf.kavi.KafkaViewerServer -h
 
 ## How to compile it yourself?
 
-There is no ivy/maving integration yet. For the brave, here is the list of libs used:
+There is no ivy/mavien integration yet. For the brave, here is the list of libs used:
 
 ```
 libs/
@@ -43,3 +43,5 @@ libs/slf4j-api-1.7.6.jar
 ```
 
 Alternatively check the contents of the `libs` folder in the release zip.
+
+The build.xml makes use of https://github.com/HaraldKi/hkAntLib .
