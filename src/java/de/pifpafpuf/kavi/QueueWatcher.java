@@ -33,6 +33,11 @@ public class QueueWatcher {
   private final KafkaConsumer<Object, byte[]> kafcon;
   private final KafkaConsumer<MetaKey, byte[]> offcon;
 
+  // FIXME: we are using KafkaConsumer in a non thread-safe fashion. Either
+  // allocate a new one each time or use a ThreadLocal. But ThreadLocal does
+  // not seem to provide a means for controlled freeing/closing of resources.
+  // What a nonsense.
+  
   public QueueWatcher(String hostport) {
     Properties props = new Properties();
     props.put("group.id", "some-random-group-id");
@@ -186,47 +191,62 @@ public class QueueWatcher {
   }
   /*+**********************************************************************/
   public Map<String, OffsetInfo> getLastOffsets(long pollMillis) {
-    Map<String, List<String>> groupData = new HashMap<>();
+    Map<String, List<String>> groups = new HashMap<>();
     assignAllPartitions(kafcon);
-    Map<String, OffsetInfo> result = new HashMap<>();
+    Map<String, OffsetInfo> curerentState = new HashMap<>();
     ConsumerRecords<MetaKey, byte[]> data;
+
+    // TODO: There is more data to decode for group messages.
+    
     for (data=offcon.poll(pollMillis);
         !data.isEmpty();
         data=offcon.poll(pollMillis)) {
       for(ConsumerRecord<MetaKey, byte[]> r : data) {
-        MetaKey key = r.key();
-        result.remove(key.getKey()); // keep only the most recent
-        if (key instanceof OffsetMetaKey) {
-          OffsetMetaKey okey = (OffsetMetaKey)key;
-          OffsetMsgValue value = (OffsetMsgValue)key.decodeValue(r.value());
-          long tip = getHead(okey);
-          OffsetInfo oinfo = new OffsetInfo(tip, okey, value);
-          result.put(key.getKey(), oinfo);
-          addConsumer(groupData, okey);
-        } else {
-          GroupMsgValue v = GroupMsgValue.decode(r.value());
-          GroupMetaKey gkey = (GroupMetaKey)key;
-          if (v==null) {
-            List<String> deadKeys = groupData.get(gkey.group);
-            if (deadKeys!=null) {
-              for (String dead : deadKeys) {
-                OffsetInfo oi = result.remove(dead);
-                result.put(dead, oi.asDead());
-              }
-            }
-          }
-        }
+        updateState(groups, curerentState, r);
       }
     }
-    return result;
+    return curerentState;
+  }
+  /*+******************************************************************/
+  private void updateState(Map<String,List<String>> groups,
+                           Map<String,OffsetInfo> currentState,
+                           ConsumerRecord<MetaKey,byte[]> rec)
+  {
+    MetaKey key = rec.key();
+
+    if (key instanceof OffsetMetaKey) {
+      OffsetMetaKey okey = (OffsetMetaKey)key;
+      OffsetMsgValue value = (OffsetMsgValue)key.decodeValue(rec.value());
+      long tip = getHead(okey);
+      OffsetInfo oinfo = new OffsetInfo(tip, okey, value);
+      OffsetInfo latest = currentState.get(key.getKey());
+      if (latest==null) {
+        currentState.put(key.getKey(), oinfo);
+      } else {
+        latest.setValue(value);
+      }
+      addConsumer(groups, okey);
+      return;
+    }
+
+    GroupMetaKey gkey = (GroupMetaKey)key;
+    boolean dead = null==GroupMsgValue.decode(rec.value());
+    List<String> groupKeys = groups.get(gkey.group);
+    if (groupKeys==null) {
+      return;
+    }
+    for (String member : groupKeys) {
+      OffsetInfo oi = currentState.get(member);
+      oi.setDead(dead);
+    }
   }
   /*+**********************************************************************/
-  private static void addConsumer(Map<String, List<String>> groupData,
+  private static void addConsumer(Map<String, List<String>> groups,
                                   OffsetMetaKey okey) {
-    List<String> keys = groupData.get(okey.group);
+    List<String> keys = groups.get(okey.group);
     if (keys==null) {
       keys = new LinkedList<String>();
-      groupData.put(okey.group, keys);
+      groups.put(okey.group, keys);
     }
     keys.add(okey.getKey());
   }

@@ -30,7 +30,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     addRefreshMeta(page, refreshSecs);
 
     QueueWatcher qw = KafkaViewerServer.getQueueWatcher();
-    qw.rewindOffsets(100);
+    qw.rewindOffsets(2000);
     Map<String, OffsetInfo> offs = qw.getLastOffsets(200);
 
     page.addContent(renderRefresh(refreshSecs));
@@ -62,6 +62,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     thead.add("th").addText("head");
     thead.add("th").addText("lag");
     thead.add("th").addText("expires (UTC)");
+    thead.add("th").addText("closed");
     thead.add("th").addText("dead");
 
     Html tbody = table.add("tbody");
@@ -70,11 +71,12 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     infos.addAll(offs.values());
     Collections.sort(infos, CommitstampSorter.INSTANCE);
 
-
+    OffsetMetaKey previous = null;
     for (OffsetInfo oi : infos) {
       OffsetMetaKey ok = oi.key;
-      OffsetMsgValue ov = oi.value;
+      OffsetMsgValue ov = oi.getValue();
       Html tr = new Html("tr");
+      addSkip(tr, previous, ok);
       tr.add("td").addText(ov!=null ? dateFormat(ov.commitStamp) : "");
       tr.add("td").addText(ok.group);
 
@@ -97,12 +99,22 @@ public class ShowConsumerOffsets  extends AllServletsParent {
       .addText(ov!=null ? Long.toString(oi.tip-ov.offset) : "")
       .setAttr("class", "ral")
       ;
-
       tr.add("td").addText(ov!=null ? dateFormat(ov.expiresStamp) : "");
-      tr.add("td").addText(oi.dead ? "✘" : "").setAttr("class", "cal");
+      tr.add("td").addText(oi.isClosed() ? "✘" : "").setAttr("class", "cal");
+      tr.add("td").addText(oi.isDead() ? "✘" : "").setAttr("class", "cal");
       tbody.add(tr);
+      previous = ok;
     }
     return table;
+  }
+
+  private void addSkip(Html tr, OffsetMetaKey previous, OffsetMetaKey ok) {
+    if (previous!=null
+        && previous.topic.equals(ok.topic)
+        && previous.group.equals(ok.group)) {
+      return;
+    }
+    tr.setAttr("class", "wtopmargin");
   }
 
   private enum CommitstampSorter implements Comparator<OffsetInfo> {
@@ -110,12 +122,25 @@ public class ShowConsumerOffsets  extends AllServletsParent {
 
     @Override
     public int compare(OffsetInfo o1, OffsetInfo o2) {
-      return -asc(o1, o2);
-    }
+      OffsetMetaKey ok1 = o1.key;
+      OffsetMetaKey ok2 = o2.key;
+      int r = ok1.group.compareTo(ok2.group);
+      if (r!=0) {
+        return r;
+      }
+      r = ok1.topic.compareTo(ok2.topic);
+      if (r!=0) {
+        return r;
+      }
+      if (ok1.partition<ok2.partition) {
+        return -1;
+      }
+      if (ok1.partition>ok2.partition) {
+        return 1;
+      }
 
-    public int asc(OffsetInfo o1, OffsetInfo o2) {
-      OffsetMsgValue v1 = o1.value;
-      OffsetMsgValue v2 = o2.value;
+      OffsetMsgValue v1 = o1.getValue();
+      OffsetMsgValue v2 = o2.getValue();
       if (v1==null) {
         return v2==null ? 0 : -1;
       } else if (v2==null) {
@@ -125,14 +150,6 @@ public class ShowConsumerOffsets  extends AllServletsParent {
         return -1;
       }
       if (v1.commitStamp>v2.commitStamp) {
-        return 1;
-      }
-      OffsetMetaKey ok1 = o1.key;
-      OffsetMetaKey ok2 = o2.key;
-      if (ok1.partition<ok2.partition) {
-        return -1;
-      }
-      if (ok1.partition>ok2.partition) {
         return 1;
       }
       return 0;
