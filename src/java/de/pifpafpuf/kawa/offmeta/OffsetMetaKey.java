@@ -1,4 +1,4 @@
-package de.pifpafpuf.kavi.offmeta;
+package de.pifpafpuf.kawa.offmeta;
 
 public class OffsetMetaKey extends MetaKey {
   public final short partition;

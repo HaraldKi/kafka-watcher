@@ -1,4 +1,4 @@
-package de.pifpafpuf.kavi;
+package de.pifpafpuf.kawa;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;

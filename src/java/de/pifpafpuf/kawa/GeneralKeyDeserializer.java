@@ -1,11 +1,11 @@
-package de.pifpafpuf.kavi;
+package de.pifpafpuf.kawa;
 
 import java.util.Map;
 
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
-import de.pifpafpuf.kavi.offmeta.OffsetsKeyDeserializer;
+import de.pifpafpuf.kawa.offmeta.OffsetsKeyDeserializer;
 
 public enum GeneralKeyDeserializer implements Deserializer<Object> {
   KEY {

@@ -1,4 +1,4 @@
-package de.pifpafpuf.kavi.offmeta;
+package de.pifpafpuf.kawa.offmeta;
 
 public class GroupMetaKey extends MetaKey {
   public final String group;

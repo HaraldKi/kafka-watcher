@@ -1,4 +1,4 @@
-package de.pifpafpuf.kavi;
+package de.pifpafpuf.kawa;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -9,9 +9,9 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import de.pifpafpuf.kavi.offmeta.OffsetInfo;
-import de.pifpafpuf.kavi.offmeta.OffsetMetaKey;
-import de.pifpafpuf.kavi.offmeta.OffsetMsgValue;
+import de.pifpafpuf.kawa.offmeta.OffsetInfo;
+import de.pifpafpuf.kawa.offmeta.OffsetMetaKey;
+import de.pifpafpuf.kawa.offmeta.OffsetMsgValue;
 import de.pifpafpuf.web.html.EmptyElem;
 import de.pifpafpuf.web.html.Html;
 import de.pifpafpuf.web.html.HtmlPage;
@@ -29,7 +29,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     int refreshSecs = pRefreshSecs.fromFirst(req, -1);
     addRefreshMeta(page, refreshSecs);
 
-    QueueWatcher qw = KafkaViewerServer.getQueueWatcher();
+    QueueWatcher qw = KafkaWatcherServer.getQueueWatcher();
     qw.rewindOffsets(2000);
     Map<String, OffsetInfo> offs = qw.getLastOffsets(200);
 

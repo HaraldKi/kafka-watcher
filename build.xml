@@ -40,7 +40,7 @@
   <target name="package" depends="jar, distzip"/>
 
   <target name="start" depends="compile">
-    <java classname="de.pifpafpuf.kavi.KafkaViewerServer" fork="true">
+    <java classname="de.pifpafpuf.kawa.KafkaWatcherServer" fork="true">
       <classpath>
         <pathelement location="libs/*"/>
         <pathelement location="libs/Jetty/*" />

@@ -1,4 +1,4 @@
-package de.pifpafpuf.kavi;
+package de.pifpafpuf.kawa;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -10,7 +10,7 @@ import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import de.pifpafpuf.kavi.offmeta.PartitionMeta;
+import de.pifpafpuf.kawa.offmeta.PartitionMeta;
 import de.pifpafpuf.web.html.Html;
 import de.pifpafpuf.web.html.HtmlPage;
 
@@ -20,7 +20,7 @@ public class ShowTopics  extends AllServletsParent {
   @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp) {
     HtmlPage page = initPage("show topics &mdash; Kavi");
-    QueueWatcher qw = KafkaViewerServer.getQueueWatcher();
+    QueueWatcher qw = KafkaWatcherServer.getQueueWatcher();
     Map<String, List<PartitionMeta>> topics = qw.topicInfo();
 
     page.addContent(renderHeader());

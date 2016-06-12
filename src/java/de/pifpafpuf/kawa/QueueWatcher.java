@@ -1,4 +1,4 @@
-package de.pifpafpuf.kavi;
+package de.pifpafpuf.kawa;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,17 +17,17 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.log4j.Logger;
 
-import de.pifpafpuf.kavi.offmeta.GroupMetaKey;
-import de.pifpafpuf.kavi.offmeta.GroupMsgValue;
-import de.pifpafpuf.kavi.offmeta.MetaKey;
-import de.pifpafpuf.kavi.offmeta.OffsetInfo;
-import de.pifpafpuf.kavi.offmeta.OffsetMetaKey;
-import de.pifpafpuf.kavi.offmeta.OffsetMsgValue;
-import de.pifpafpuf.kavi.offmeta.OffsetsKeyDeserializer;
-import de.pifpafpuf.kavi.offmeta.PartitionMeta;
+import de.pifpafpuf.kawa.offmeta.GroupMetaKey;
+import de.pifpafpuf.kawa.offmeta.GroupMsgValue;
+import de.pifpafpuf.kawa.offmeta.MetaKey;
+import de.pifpafpuf.kawa.offmeta.OffsetInfo;
+import de.pifpafpuf.kawa.offmeta.OffsetMetaKey;
+import de.pifpafpuf.kawa.offmeta.OffsetMsgValue;
+import de.pifpafpuf.kawa.offmeta.OffsetsKeyDeserializer;
+import de.pifpafpuf.kawa.offmeta.PartitionMeta;
 
 public class QueueWatcher {
-  private static final Logger log = KafkaViewerServer.getLogger();
+  private static final Logger log = KafkaWatcherServer.getLogger();
   public static final String TOPIC_OFFSET = "__consumer_offsets";
 
   private final KafkaConsumer<Object, byte[]> kafcon;

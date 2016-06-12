@@ -1,4 +1,4 @@
-package de.pifpafpuf.kavi;
+package de.pifpafpuf.kawa;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -14,11 +14,11 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
-import de.pifpafpuf.kavi.offmeta.GroupMetaKey;
-import de.pifpafpuf.kavi.offmeta.GroupMsgValue;
-import de.pifpafpuf.kavi.offmeta.MsgValue;
-import de.pifpafpuf.kavi.offmeta.OffsetMetaKey;
-import de.pifpafpuf.kavi.offmeta.OffsetMsgValue;
+import de.pifpafpuf.kawa.offmeta.GroupMetaKey;
+import de.pifpafpuf.kawa.offmeta.GroupMsgValue;
+import de.pifpafpuf.kawa.offmeta.MsgValue;
+import de.pifpafpuf.kawa.offmeta.OffsetMetaKey;
+import de.pifpafpuf.kawa.offmeta.OffsetMsgValue;
 import de.pifpafpuf.web.html.Html;
 import de.pifpafpuf.web.html.HtmlPage;
 import de.pifpafpuf.web.urlparam.BooleanCodec;
@@ -69,7 +69,7 @@ public class ShowTopicContent  extends AllServletsParent {
       eMsg = e.getMessage();
     }
     
-    QueueWatcher qw = KafkaViewerServer.getQueueWatcher();
+    QueueWatcher qw = KafkaWatcherServer.getQueueWatcher();
     
     List<ConsumerRecord<Object, byte[]>> recs =
         qw.readRecords(topicName, offset, maxRecs, pattern);

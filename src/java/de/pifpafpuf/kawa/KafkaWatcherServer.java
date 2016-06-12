@@ -1,4 +1,4 @@
-package de.pifpafpuf.kavi;
+package de.pifpafpuf.kawa;
 
 import javax.servlet.Servlet;
 
@@ -19,7 +19,7 @@ import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 
-public class KafkaViewerServer {
+public class KafkaWatcherServer {
   private static final int TWO_HOURS_SECONDS = 2*3600;
   private static final Logger log = getLogger();
   private static Server server;
@@ -192,7 +192,7 @@ public class KafkaViewerServer {
   /*+******************************************************************/
   private static void usage(Options opts, String message) {
     HelpFormatter hf = new HelpFormatter();
-    hf.printHelp(KafkaViewerServer.class.getName(),
+    hf.printHelp(KafkaWatcherServer.class.getName(),
                  "    start server to watch a Kafka server", opts, "", true); 
     System.out.printf("%n%s%n", message);
   }

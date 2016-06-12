@@ -1,4 +1,4 @@
-package de.pifpafpuf.kavi;
+package de.pifpafpuf.kawa;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -17,7 +17,7 @@ import de.pifpafpuf.web.html.HtmlPage;
 import de.pifpafpuf.web.urlparam.UrlParamCodec;
 
 public class AllServletsParent extends HttpServlet {
-  private static final Logger log = KafkaViewerServer.getLogger();
+  private static final Logger log = KafkaWatcherServer.getLogger();
   private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
   private static final ThreadLocal<DateFormat> df =
       new ThreadLocal<DateFormat>() {
