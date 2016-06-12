@@ -52,3 +52,9 @@ Alternatively check the contents of the `libs` folder in the release zip.
 
 The build.xml makes use of https://github.com/HaraldKi/hkAntLib .
 The HTMLis rendered with [htmlJgen](https://github.com/HaraldKi/htmlJgen).
+
+
+## How it looks
+(Terrible, I am not a designer at all. Nice CSS pull requests welcome!)
+
+![consumer offsets](master/docs/offsets_overview.png)
