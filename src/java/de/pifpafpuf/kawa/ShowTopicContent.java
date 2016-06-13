@@ -170,16 +170,27 @@ public class ShowTopicContent  extends AllServletsParent {
     tr.add("th").addText("value");
     thead.add(tr);
 
+    int recentPartition = -1;
     Html tbody = table.add("tbody");
 
     for (ConsumerRecord<Object, byte[]> rec : recs) {
+      int partition = rec.partition();
       String created = "unknown"; //dateFormat(rec.timestamp());
-      tr = new Html("tr").setAttr("class", "recordrow");
+      tr = new Html("tr");
+      if (recentPartition!=partition) {
+        tr.setAttr("class", "recordrow wtopmargin");
+        recentPartition = partition;
+      } else {
+        tr.setAttr("class", "recordrow");
+      }
       tr.add("td").addText(created);
-      tr.add("td").addText(Long.toString(rec.partition()));
+      tr.add("td").addText(Long.toString(partition));
       tr.add("td").addText(Long.toString(rec.offset()));
       tr.add("td").addText(rec.key().toString());
-      tr.add("td").addText(convert(rec));
+      tr.add("td")
+      .add("div")
+      .setAttr("class", "recvalue")
+      .addText(convert(rec));
       tbody.add(tr);
     }
     return table;

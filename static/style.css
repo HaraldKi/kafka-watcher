@@ -24,7 +24,7 @@ table.withdata {
   text-align: center;
 }
 
-.groupdata {
+.groupdata, .records, .topiclist {
   border-collapse: collapse;
 }
 
@@ -70,4 +70,9 @@ table.withdata {
 }
 .wtopmargin >td {
   padding-top: 5px;
+}
+
+.recvalue {
+  max-height: 14ex;
+  overflow-y: auto;
 }

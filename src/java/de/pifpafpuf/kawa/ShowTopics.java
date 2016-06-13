@@ -69,6 +69,7 @@ public class ShowTopics  extends AllServletsParent {
     for (PartitionMeta pm : pmeta) {
       Html row = new Html("tr");
       if (partition==0) {
+        row.setAttr("class", "wtopmargin");
         StringBuilder sb = new StringBuilder(200);
         sb.append(ShowTopicContent.URL).append('?');
         ShowTopicContent.pTopic.appendToUrl(sb, topic);
