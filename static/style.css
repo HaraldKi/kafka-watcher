@@ -82,3 +82,19 @@ table.withdata {
   word-break: break-all;
   min-width:  30%;
 }
+
+.offsetsform {
+  border: 2px solid grey;
+  padding: 2px;
+  margin-bottom: 2px;
+}
+
+.offsetsform label {
+  margin-right: 1em;
+  text-align: left;
+}
+
+.offsetsform label input {
+  margin-right: 0px;
+}
+

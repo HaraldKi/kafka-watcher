@@ -15,14 +15,20 @@ import de.pifpafpuf.kawa.offmeta.OffsetMsgValue;
 import de.pifpafpuf.web.html.EmptyElem;
 import de.pifpafpuf.web.html.Html;
 import de.pifpafpuf.web.html.HtmlPage;
+import de.pifpafpuf.web.urlparam.BooleanCodec;
 import de.pifpafpuf.web.urlparam.IntegerCodec;
 import de.pifpafpuf.web.urlparam.UrlParamCodec;
 
 public class ShowConsumerOffsets  extends AllServletsParent {
   public static final String URL = "/offsets";
   public static final UrlParamCodec<Integer> pRefreshSecs =
-      new UrlParamCodec<>("refreshsecs",
+      new UrlParamCodec<>("refreshsecs", 
                           new IntegerCodec(1, Integer.MAX_VALUE));
+  public static final UrlParamCodec<Boolean> pShowDead =
+      new UrlParamCodec<>("dead", BooleanCodec.INSTANCE);
+  public static final UrlParamCodec<Boolean> pShowClosed=
+      new UrlParamCodec<>("closed", BooleanCodec.INSTANCE);
+         
   @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp) {
     HtmlPage page = initPage("consumer offsets");
@@ -33,9 +39,13 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     qw.rewindOffsets(2000);
     Map<String, OffsetInfo> offs = qw.getLastOffsets(200);
 
+    boolean withClosed = pShowClosed.fromFirst(req, false);
+    boolean withDead = pShowDead.fromFirst(req, false);
+    
     page.addContent(renderRefresh(refreshSecs));
     page.addContent(renderHeader());
-    page.addContent(renderTable(offs));
+    page.addContent(renderForm(withClosed, withDead));
+    page.addContent(renderTable(offs, withClosed, withDead));
     sendPage(resp, page);
   }
   /*+******************************************************************/
@@ -51,19 +61,54 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     return div;
   }
   /*+******************************************************************/
-  private EmptyElem renderTable(Map<String,OffsetInfo> offs) {
+  private Html renderForm(boolean withClosed, boolean withDead) {
+    Html form = new Html("form")
+    .setAttr("method", "GET")
+    .setAttr("action", URL)
+    .setAttr("class", "offsetsform");
+    
+    Html closedCheckLabel = form.add("label");
+    EmptyElem closedCheck = closedCheckLabel
+        .addEmpty("input")
+        .setAttr("type", "checkbox");
+    closedCheckLabel.addText("with closed");
+    pShowClosed.setParam(closedCheck, true);
+    if (withClosed) {
+      closedCheck.setAttr("checked", "");
+    }
+    
+    Html deadCheckLabel = form.add("label"); 
+    EmptyElem deadCheck = deadCheckLabel
+        .addEmpty("input")
+        .setAttr("type", "checkbox");
+    deadCheckLabel.addText("with dead");
+    pShowDead.setParam(deadCheck, true);
+    if (withDead) {
+      deadCheck.setAttr("checked", "");
+    }
+    
+    form.add("input")
+    .setAttr("type", "submit")
+    .setAttr("name", "submit")
+    .setAttr("value", "get");
+    
+    return form;
+  }
+  /*+******************************************************************/
+  private EmptyElem renderTable(Map<String,OffsetInfo> offs,
+                                boolean withClosed, boolean withDead) {
     Html table = new Html("table").setAttr("class", "groupdata withdata");
-    Html thead = table.add("thead");
-    thead.add("th").addText("committed (UTC)");
-    thead.add("th").addText("group ID");
-    thead.add("th").addText("topic");
-    thead.add("th").addText("partition");
-    thead.add("th").addText("offset");
-    thead.add("th").addText("head");
-    thead.add("th").addText("lag");
-    thead.add("th").addText("expires (UTC)");
-    thead.add("th").addText("closed");
-    thead.add("th").addText("dead");
+    Html theadrow = table.add("thead").add("tr");
+    theadrow.add("th").addText("committed (UTC)");
+    theadrow.add("th").addText("group ID");
+    theadrow.add("th").addText("topic");
+    theadrow.add("th").addText("partition");
+    theadrow.add("th").addText("offset");
+    theadrow.add("th").addText("head");
+    theadrow.add("th").addText("lag");
+    theadrow.add("th").addText("expires (UTC)");
+    theadrow.add("th").addText("closed");
+    theadrow.add("th").addText("dead");
 
     Html tbody = table.add("tbody");
 
@@ -73,8 +118,14 @@ public class ShowConsumerOffsets  extends AllServletsParent {
 
     OffsetMetaKey previous = null;
     for (OffsetInfo oi : infos) {
-      OffsetMetaKey ok = oi.key;
       OffsetMsgValue ov = oi.getValue();
+      if (!withClosed && oi.isClosed()) {
+        continue;
+      }
+      if (!withDead && oi.isDead()) {
+        continue;
+      }
+      OffsetMetaKey ok = oi.key;
       Html tr = new Html("tr");
       addSkip(tr, previous, ok);
       tr.add("td").addText(ov!=null ? dateFormat(ov.commitStamp) : "");
