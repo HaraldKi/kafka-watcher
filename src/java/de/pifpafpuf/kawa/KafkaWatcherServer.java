@@ -72,7 +72,7 @@ public class KafkaWatcherServer {
     System.setProperty("org.eclipse.jetty.util.log.class",
                        "de.pifpafpuf.vecovi.JettyLog4jLogging");
 
-    QueuedThreadPool threadPool = new QueuedThreadPool(4, 2);
+    QueuedThreadPool threadPool = new QueuedThreadPool(6, 2);
 
     log.info("starting server setup");
     server = new Server(threadPool);
