@@ -186,7 +186,9 @@ public class ShowTopicContent  extends AllServletsParent {
       tr.add("td").addText(created);
       tr.add("td").addText(Long.toString(partition));
       tr.add("td").addText(Long.toString(rec.offset()));
-      tr.add("td").addText(rec.key().toString());
+      tr.add("td")
+      .setAttr("class", "recKey")
+      .addText(rec.key().toString());
       tr.add("td")
       .add("div")
       .setAttr("class", "recvalue")

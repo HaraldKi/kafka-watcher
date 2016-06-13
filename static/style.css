@@ -75,4 +75,10 @@ table.withdata {
 .recvalue {
   max-height: 14ex;
   overflow-y: auto;
+  word-break: break-all;
+}
+
+.recKey {
+  word-break: break-all;
+  min-width:  30%;
 }
