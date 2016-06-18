@@ -38,6 +38,10 @@ public class QueueWatcher {
   // not seem to provide a means for controlled freeing/closing of resources.
   // What a nonsense.
   
+  // TODO: don't always read the __consumer_offsets from some arbitrary
+  // offset backwards. Rather start polling and provide a consolidated status
+  // in-memory any time.
+  
   public QueueWatcher(String hostport) {
     Properties props = new Properties();
     props.put("group.id", "some-random-group-id");
@@ -230,7 +234,7 @@ public class QueueWatcher {
     }
 
     GroupMetaKey gkey = (GroupMetaKey)key;
-    boolean dead = null==GroupMsgValue.decode(rec.value());
+    boolean dead = null==GroupMsgValue.decode(rec.value(), gkey);
     List<String> groupKeys = groups.get(gkey.group);
     if (groupKeys==null) {
       return;

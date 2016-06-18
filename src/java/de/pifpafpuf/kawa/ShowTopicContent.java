@@ -201,11 +201,12 @@ public class ShowTopicContent  extends AllServletsParent {
   private String convert(ConsumerRecord<Object, byte[]> rec) {
     Object key = rec.key();
     if (key instanceof GroupMetaKey) {
-      MsgValue mv =GroupMsgValue.decode(rec.value());
+      MsgValue mv =GroupMsgValue.decode(rec.value(), (GroupMetaKey)key);
       return mv==null ? "(null)" : mv.toString();
     }
     if (key instanceof OffsetMetaKey) {
-      MsgValue mv = OffsetMsgValue.decode(rec.value());
+      MsgValue mv = OffsetMsgValue.decode(rec.value(),
+                                          OffsetMetaKey.class.cast(key));
       return mv==null ? "(null)" : mv.toString();
     }
     if (rec.value()==null) {

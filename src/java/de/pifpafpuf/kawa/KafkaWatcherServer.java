@@ -26,6 +26,7 @@ public class KafkaWatcherServer {
 
   // application status
   private static QueueWatcher qw = null;
+  private static GroupStateWatcher gsw = null;
   
   /*+******************************************************************/
   public static void main(String[] argv) throws Exception {
@@ -51,6 +52,10 @@ public class KafkaWatcherServer {
     return qw;
   }
   /*+******************************************************************/
+  public static GroupStateWatcher getGroupStateWatcher() {
+    return gsw;
+  }
+  /*+******************************************************************/
   private static void setupServer(String[] argv) throws Exception {
     CommandLine cli = parseCli(argv);
     if (cli==null) {
@@ -68,6 +73,8 @@ public class KafkaWatcherServer {
     String kafkahostport = cli.getOptionValue("b", "localhost:9092");
     log.info("contacting kafka server at "+kafkahostport);    
     qw = new QueueWatcher(kafkahostport);
+    gsw = new GroupStateWatcher(kafkahostport);
+    new Thread(gsw, "GroupStateWatcher").start();
     
     System.setProperty("org.eclipse.jetty.util.log.class",
                        "de.pifpafpuf.vecovi.JettyLog4jLogging");
@@ -150,6 +157,10 @@ public class KafkaWatcherServer {
       if (qw!=null) {
         log.info("asking the kafka log watcher to stop");
         qw.shutdown();
+      }
+      if (gsw!=null) {
+        log.info("asking the group state watcher to stop");
+        gsw.shutdown();
       }
     }
   }

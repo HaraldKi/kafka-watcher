@@ -2,6 +2,7 @@
 
 table.withdata {
   border: 1px solid black;
+  margin-bottom: 4px;
 }
 
 .withdata thead th {
@@ -23,15 +24,17 @@ table.withdata {
 .cal {
   text-align: center;
 }
-
+.lag {
+  font-weight: bold;
+  color: #a72;
+  min-width: 3ex;
+}
+.lagstuck {
+  color: #777;
+  min-width: 3ex;  
+}
 .groupdata, .records, .topiclist {
   border-collapse: collapse;
-}
-
-.groupdata td:nth-child(7) {
-  font-weight: bold;
-  color: #633;
-  min-width: 3em;
 }
 
 .topiclist td:nth-child(3) {
@@ -98,3 +101,6 @@ table.withdata {
   margin-right: 0px;
 }
 
+.expired {
+  color: #777;
+}

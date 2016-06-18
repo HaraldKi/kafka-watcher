@@ -9,7 +9,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import de.pifpafpuf.kawa.offmeta.OffsetInfo;
+import de.pifpafpuf.kawa.offmeta.GroupMsgValue;
 import de.pifpafpuf.kawa.offmeta.OffsetMetaKey;
 import de.pifpafpuf.kawa.offmeta.OffsetMsgValue;
 import de.pifpafpuf.web.html.EmptyElem;
@@ -22,30 +22,32 @@ import de.pifpafpuf.web.urlparam.UrlParamCodec;
 public class ShowConsumerOffsets  extends AllServletsParent {
   public static final String URL = "/offsets";
   public static final UrlParamCodec<Integer> pRefreshSecs =
-      new UrlParamCodec<>("refreshsecs", 
+      new UrlParamCodec<>("refreshsecs",
                           new IntegerCodec(1, Integer.MAX_VALUE));
   public static final UrlParamCodec<Boolean> pShowDead =
       new UrlParamCodec<>("dead", BooleanCodec.INSTANCE);
   public static final UrlParamCodec<Boolean> pShowClosed=
       new UrlParamCodec<>("closed", BooleanCodec.INSTANCE);
-         
+
   @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp) {
     HtmlPage page = initPage("consumer offsets");
     int refreshSecs = pRefreshSecs.fromFirst(req, -1);
     addRefreshMeta(page, refreshSecs);
 
-    QueueWatcher qw = KafkaWatcherServer.getQueueWatcher();
-    qw.rewindOffsets(2000);
-    Map<String, OffsetInfo> offs = qw.getLastOffsets(200);
+    GroupStateWatcher gsw = KafkaWatcherServer.getGroupStateWatcher();
+    Map<String, OffsetMsgValue> offs = gsw.getOffsetsState();
+    Map<String, GroupMsgValue> groups = gsw.getGroupsState();
 
     boolean withClosed = pShowClosed.fromFirst(req, false);
     boolean withDead = pShowDead.fromFirst(req, false);
-    
+
     page.addContent(renderRefresh(refreshSecs));
     page.addContent(renderHeader());
     page.addContent(renderForm(withClosed, withDead));
-    page.addContent(renderTable(offs, withClosed, withDead));
+    page.addContent(renderTable(offs, groups, withClosed, withDead));
+    
+    page.addContent(renderGroups(groups, withClosed));
     sendPage(resp, page);
   }
   /*+******************************************************************/
@@ -66,7 +68,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     .setAttr("method", "GET")
     .setAttr("action", URL)
     .setAttr("class", "offsetsform");
-    
+
     Html closedCheckLabel = form.add("label");
     EmptyElem closedCheck = closedCheckLabel
         .addEmpty("input")
@@ -76,8 +78,8 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     if (withClosed) {
       closedCheck.setAttr("checked", "");
     }
-    
-    Html deadCheckLabel = form.add("label"); 
+
+    Html deadCheckLabel = form.add("label");
     EmptyElem deadCheck = deadCheckLabel
         .addEmpty("input")
         .setAttr("type", "checkbox");
@@ -86,16 +88,17 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     if (withDead) {
       deadCheck.setAttr("checked", "");
     }
-    
+
     form.add("input")
     .setAttr("type", "submit")
     .setAttr("name", "submit")
     .setAttr("value", "get");
-    
+
     return form;
   }
   /*+******************************************************************/
-  private EmptyElem renderTable(Map<String,OffsetInfo> offs,
+  private EmptyElem renderTable(Map<String, OffsetMsgValue> offs,
+                                Map<String, GroupMsgValue> groups,
                                 boolean withClosed, boolean withDead) {
     Html table = new Html("table").setAttr("class", "groupdata withdata");
     Html theadrow = table.add("thead").add("tr");
@@ -107,29 +110,31 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     theadrow.add("th").addText("head");
     theadrow.add("th").addText("lag");
     theadrow.add("th").addText("expires (UTC)");
-    theadrow.add("th").addText("closed");
-    theadrow.add("th").addText("dead");
+    theadrow.add("th").addText("expired");
 
     Html tbody = table.add("tbody");
 
-    List<OffsetInfo> infos = new ArrayList<>(offs.size());
+    List<OffsetMsgValue> infos = new ArrayList<>(offs.size());
     infos.addAll(offs.values());
     Collections.sort(infos, CommitstampSorter.INSTANCE);
 
     OffsetMetaKey previous = null;
-    for (OffsetInfo oi : infos) {
-      OffsetMsgValue ov = oi.getValue();
-      if (!withClosed && oi.isClosed()) {
-        continue;
-      }
-      if (!withDead && oi.isDead()) {
+    for (OffsetMsgValue oi : infos) {
+      if (!withDead && oi.isExpired()) {
         continue;
       }
       OffsetMetaKey ok = oi.key;
+      boolean groupClosed = groups.get(ok.group).isExpired(); 
+      if (!withClosed && groupClosed) {
+        continue;
+      }
       Html tr = new Html("tr");
       addSkip(tr, previous, ok);
-      tr.add("td").addText(ov!=null ? dateFormat(ov.commitStamp) : "");
-      tr.add("td").addText(ok.group);
+      tr.add("td").addText(dateFormat(oi.commitStamp));
+      Html groupname = tr.add("td").addText(ok.group);
+      if (groupClosed) {
+        groupname.setAttr("class", "expired");
+      }
 
       tr.add("td")
       .addText(ok.topic);
@@ -139,26 +144,33 @@ public class ShowConsumerOffsets  extends AllServletsParent {
       .setAttr("class", "ral");
 
       tr.add("td")
-      .addText(ov!=null ? Long.toString(ov.offset) : "")
+      .addText(Long.toString(oi.offset))
       .setAttr("class", "ral")
       ;
       tr.add("td")
-      .addText(Long.toString(oi.tip))
+      .addText(oi.getHead()<0 ? "?" : Long.toString(oi.getHead()))
       .setAttr("class", "ral")
       ;
-      tr.add("td")
-      .addText(ov!=null ? Long.toString(oi.tip-ov.offset) : "")
-      .setAttr("class", "ral")
-      ;
-      tr.add("td").addText(ov!=null ? dateFormat(ov.expiresStamp) : "");
-      tr.add("td").addText(oi.isClosed() ? "✘" : "").setAttr("class", "cal");
-      tr.add("td").addText(oi.isDead() ? "✘" : "").setAttr("class", "cal");
+      Html lag = tr.add("td")
+          .addText(oi.getHead()<0 ? "" : Long.toString(oi.getHead()-oi.offset));
+      if (groupClosed) {
+        lag .setAttr("class", "ral lagstuck");
+      } else {
+        lag .setAttr("class", "ral lag");
+      }
+      
+      boolean expired = oi.isExpired();
+      Html exp = tr.add("td").addText(dateFormat(oi.expiresStamp));
+      if (expired) {
+        exp.setAttr("class", "expired");
+      }
+      tr.add("td").addText(expired ? "✘" : "").setAttr("class", "cal");
       tbody.add(tr);
       previous = ok;
     }
     return table;
   }
-
+  /*+******************************************************************/
   private void addSkip(Html tr, OffsetMetaKey previous, OffsetMetaKey ok) {
     if (previous!=null
         && previous.topic.equals(ok.topic)
@@ -167,12 +179,40 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     }
     tr.setAttr("class", "wtopmargin");
   }
-
-  private enum CommitstampSorter implements Comparator<OffsetInfo> {
+  /*+******************************************************************/
+  private Html renderGroups(Map<String, GroupMsgValue> groups, 
+                            boolean withClosed) {
+    Html table = new Html("table").setAttr("class", "groupdata withdata");
+    Html theadrow = table.add("thead").add("tr");
+    theadrow.add("th").addText("group");
+    theadrow.add("th").addText("closed");
+    
+    List<GroupMsgValue> infos = new ArrayList<>(groups.size());
+    infos.addAll(groups.values());
+    Html tbody = table.add("tbody");
+    boolean first = true;
+    for (GroupMsgValue gv : infos) {
+      if (!withClosed && gv.isExpired()) {
+        continue;
+      }
+      Html tr = tbody.add("tr");
+      if (first) {
+        tr.setAttr("class", "wtopmargin");
+        first = false;
+      }
+      
+      tr.add("td").addText(gv.key.group);
+      tr.add("td").addText(gv.isExpired() ? "✘" : "").setAttr("class", "cal");
+    }
+    
+    return table;
+  }
+  /*+******************************************************************/
+  private enum CommitstampSorter implements Comparator<OffsetMsgValue> {
     INSTANCE;
 
     @Override
-    public int compare(OffsetInfo o1, OffsetInfo o2) {
+    public int compare(OffsetMsgValue o1, OffsetMsgValue o2) {
       OffsetMetaKey ok1 = o1.key;
       OffsetMetaKey ok2 = o2.key;
       int r = ok1.group.compareTo(ok2.group);
@@ -190,13 +230,8 @@ public class ShowConsumerOffsets  extends AllServletsParent {
         return 1;
       }
 
-      OffsetMsgValue v1 = o1.getValue();
-      OffsetMsgValue v2 = o2.getValue();
-      if (v1==null) {
-        return v2==null ? 0 : -1;
-      } else if (v2==null) {
-        return 1;
-      }
+      OffsetMsgValue v1 = o1;
+      OffsetMsgValue v2 = o2;
       if (v1.commitStamp<v2.commitStamp) {
         return -1;
       }

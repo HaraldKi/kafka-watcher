@@ -13,9 +13,17 @@ public class GroupMetaKey extends MetaKey {
     return group;
   }
 
+  public GroupMsgValue decode(byte[] data, GroupMsgValue vOld) {
+    GroupMsgValue vNew = GroupMsgValue.decode(data, this);
+    if (vNew==null) {
+      vOld.expire();
+      return vOld;
+    }
+    return vNew;
+  }
   @Override
   public MsgValue decodeValue(byte[] value) {
-    return GroupMsgValue.decode(value);
+    return GroupMsgValue.decode(value, this);
   }
   
 }

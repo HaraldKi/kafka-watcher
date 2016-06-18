@@ -12,18 +12,38 @@ public class OffsetMsgValue extends MsgValue {
   public final long offset;
   public final long commitStamp;
   public final long expiresStamp;
-
-
+  public final OffsetMetaKey key;
+  private long expired = -1;    // no tyet expired if <0
+  private long head = -1;
+  
   public OffsetMsgValue(short version, String metadata, long offset,
-                        long timestamp, long expiresStamp) {
+                        long timestamp, long expiresStamp,
+                        OffsetMetaKey key) {
     this.version = version;
     this.metadata = metadata;
     this.offset = offset;
     this.commitStamp = timestamp;
     this.expiresStamp = expiresStamp;
+    this.key = key;
   }
 
-  public static OffsetMsgValue decode(byte[] data) {
+  public void expire() {
+    expired = System.currentTimeMillis();
+  }
+  public long getExpired() {
+    return expired;
+  }
+  public boolean isExpired() {
+    return expired>=0;
+  }
+  public void setHead(long offset) {
+    this.head = offset;
+  }
+  public long getHead() {
+    return head;
+  }
+
+  public static OffsetMsgValue decode(byte[] data, OffsetMetaKey key) {
     if (data==null) {
       return null;
     }
@@ -47,7 +67,8 @@ public class OffsetMsgValue extends MsgValue {
     }
 
     return new OffsetMsgValue(version, metadata,
-                              offset, timestamp, expiresStamp);
+                              offset, timestamp, expiresStamp,
+                              key);
   }
 
   @Override
