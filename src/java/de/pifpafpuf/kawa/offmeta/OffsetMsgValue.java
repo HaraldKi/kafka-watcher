@@ -6,7 +6,7 @@ import java.text.SimpleDateFormat;
 
 import org.apache.kafka.common.protocol.types.Type;
 
-public class OffsetMsgValue extends MsgValue {
+public class OffsetMsgValue {
   public final short version;
   public final String metadata;
   public final long offset;

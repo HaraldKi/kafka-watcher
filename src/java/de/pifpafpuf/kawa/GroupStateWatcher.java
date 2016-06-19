@@ -71,42 +71,57 @@ public class GroupStateWatcher implements Runnable {
   }
   /*+******************************************************************/
   public void shutdown() {
-    offcon.close();
+    offcon.wakeup();
   }
   /*+******************************************************************/
   @Override
   public void run() {
     long start = System.currentTimeMillis();
-    long timeout = 2000;
-    long records = 0;
     List<TopicPartition> tps = assignTopic();
     rewindOffsets(tps);
+    tps = null;
+    final int initialTimeout = 2000;
+    long records = processToTimeout(initialTimeout, 0);
+    if (records<0) {
+      return;
+    }
+    long now = System.currentTimeMillis();
+    long ds = (now-start-initialTimeout);
+    log.info("read "+records+" records in "+ds+"ms before first emptying "
+        + "the queue");
+    processToTimeout(Integer.MAX_VALUE, records);
+  }
+  /*+******************************************************************/
+  private final long processToTimeout(int timeout, long count) {
     while (true) {
-      ConsumerRecords<MetaKey, byte[]> recs = null;
-      try {
-        recs = offcon.poll(timeout);
-      } catch (WakeupException e) {
-        log.info("got WakeupException, terminating");
-        return;
-      } catch (KafkaException e) {
-        log.error("Exiting due to total screwup, see cause", e);
-        return;
+      ConsumerRecords<MetaKey, byte[]> recs = getRecords(timeout);
+      if (recs==null) {
+        offcon.close();
+        return -1;
       }
-      if (log.isDebugEnabled() && !recs.isEmpty()) {
+      if (recs.isEmpty()) {
+        return count;
+      }
+      if (log.isDebugEnabled()) {
         log.debug("got "+recs.count()+" records");
-      }
-      if (timeout<Integer.MAX_VALUE && recs.isEmpty()) {
-        long now = System.currentTimeMillis();
-        long ds = (now-start)/1000;
-        log.info("read "+records+" records in "+ds+"s before first emptying "
-            + "the queue");
-        timeout = Integer.MAX_VALUE;
       }
       for (ConsumerRecord<MetaKey, byte[]> rec : recs.records(TOPIC_OFFSET)) {
         process(rec);
-        records += 1;
+        count += 1;
       }
       updateHeads();
+    }      
+  }
+  /*+******************************************************************/
+  private final ConsumerRecords<MetaKey,byte[]> getRecords(long timeout) {
+    try {
+      return offcon.poll(timeout);
+    } catch (WakeupException e) {
+      log.info("got WakeupException, terminating");
+      return null;
+    } catch (KafkaException e) {
+      log.error("Exiting due to total screwup, see cause", e);
+      return null;
     }
   }
   /*+******************************************************************/

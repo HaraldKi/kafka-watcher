@@ -16,7 +16,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import de.pifpafpuf.kawa.offmeta.GroupMetaKey;
 import de.pifpafpuf.kawa.offmeta.GroupMsgValue;
-import de.pifpafpuf.kawa.offmeta.MsgValue;
 import de.pifpafpuf.kawa.offmeta.OffsetMetaKey;
 import de.pifpafpuf.kawa.offmeta.OffsetMsgValue;
 import de.pifpafpuf.web.html.Html;
@@ -36,17 +35,17 @@ public class ShowTopicContent  extends AllServletsParent {
       new UrlParamCodec<>("offset", LongCodec.INSTANCE);
   public static final UrlParamCodec<Integer> pRefreshSecs =
       new UrlParamCodec<>("refreshsecs",
-                          new IntegerCodec(1, Integer.MAX_VALUE));  
-  public static final UrlParamCodec<String> pRegex = 
+                          new IntegerCodec(1, Integer.MAX_VALUE));
+  public static final UrlParamCodec<String> pRegex =
       new UrlParamCodec<>("regex", StringCodec.INSTANCE);
 
   public static final UrlParamCodec<Integer> pMax =
-      new UrlParamCodec<>("maxrecs", 
+      new UrlParamCodec<>("maxrecs",
                           new IntegerCodec(1, Integer.MAX_VALUE));
-  
+
   public static final UrlParamCodec<Boolean> pCasefold =
       new UrlParamCodec<>("icase", BooleanCodec.INSTANCE);
-  
+
   /*+******************************************************************/
   @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp) {
@@ -57,7 +56,7 @@ public class ShowTopicContent  extends AllServletsParent {
     String topicName = pTopic.fromFirst(req, "");
     long offset = pOffset.fromFirst(req, -5l);
     int maxRecs = pMax.fromFirst(req, 5);
-    
+
     boolean caseFold = pCasefold.fromFirst(req, false);
     Pattern pattern = null;
     String regex = pRegex.fromFirst(req, ".");
@@ -68,15 +67,15 @@ public class ShowTopicContent  extends AllServletsParent {
     } catch (PatternSyntaxException e) {
       eMsg = e.getMessage();
     }
-    
+
     QueueWatcher qw = KafkaWatcherServer.getQueueWatcher();
-    
+
     List<ConsumerRecord<Object, byte[]>> recs =
         qw.readRecords(topicName, offset, maxRecs, pattern);
 
     page.addContent(renderRefreshButton(refreshSecs, topicName, offset));
     page.addContent(renderHeader(topicName));
-    page.addContent(renderForm(topicName, regex, caseFold, 
+    page.addContent(renderForm(topicName, regex, caseFold,
                                eMsg, offset, maxRecs));
     page.addContent(renderTable(recs));
     sendPage(resp, page);
@@ -98,7 +97,7 @@ public class ShowTopicContent  extends AllServletsParent {
     return a;
   }
   /*+******************************************************************/
-  private Html renderForm(String topic, String regex, boolean caseFold, 
+  private Html renderForm(String topic, String regex, boolean caseFold,
                           String eMsg, long offset, int maxRecs) {
     Html form = new Html("form")
         .setAttr("action", URL)
@@ -113,12 +112,12 @@ public class ShowTopicContent  extends AllServletsParent {
           .addText("regular expression could not be compiled:");
       p.add("span").setAttr("class", "emsg").addText(eMsg);
     }
-    
+
     Html regexDiv = form.add("div");
     regexDiv.add("div").addText("Regex");
     Html regexInput = regexDiv.add("input").setAttr("type", "text");
     pRegex.setParam(regexInput, regex);
-    
+
     Html casefoldDiv = form.add("div");
     casefoldDiv.add("div").addText("case insensitive");
     Html casefoldInput = casefoldDiv.add("input")
@@ -127,14 +126,14 @@ public class ShowTopicContent  extends AllServletsParent {
     if (caseFold) {
       casefoldInput.setAttr("checked", "");
     }
-    
+
     Html offsetDiv = form.add("div");
     offsetDiv.add("div").addText("Offset");
     Html offsetInput = offsetDiv.add("input")
     .setAttr("type", "text")
     .setAttr("title", "use negative offsets to count from the head of the log");
     pOffset.setParam(offsetInput, offset);
-    
+
     Html maxDiv = form.add("div");
     maxDiv.add("div").addText("max records to fetch");
     Html maxSelect = maxDiv.add("select")
@@ -148,12 +147,12 @@ public class ShowTopicContent  extends AllServletsParent {
         maxRecs = Integer.MAX_VALUE;
       }
     }
-    
+
     form.add("input")
     .setAttr("type", "submit")
     .setAttr("name", "submit")
     .setAttr("value", "grep");;
-    
+
     return form;
   }
   /*+******************************************************************/
@@ -201,11 +200,11 @@ public class ShowTopicContent  extends AllServletsParent {
   private String convert(ConsumerRecord<Object, byte[]> rec) {
     Object key = rec.key();
     if (key instanceof GroupMetaKey) {
-      MsgValue mv =GroupMsgValue.decode(rec.value(), (GroupMetaKey)key);
+      GroupMsgValue mv = GroupMsgValue.decode(rec.value(), (GroupMetaKey)key);
       return mv==null ? "(null)" : mv.toString();
     }
     if (key instanceof OffsetMetaKey) {
-      MsgValue mv = OffsetMsgValue.decode(rec.value(),
+      OffsetMsgValue mv = OffsetMsgValue.decode(rec.value(),
                                           OffsetMetaKey.class.cast(key));
       return mv==null ? "(null)" : mv.toString();
     }

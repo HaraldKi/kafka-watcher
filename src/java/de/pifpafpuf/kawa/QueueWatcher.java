@@ -17,13 +17,6 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.log4j.Logger;
 
-import de.pifpafpuf.kawa.offmeta.GroupMetaKey;
-import de.pifpafpuf.kawa.offmeta.GroupMsgValue;
-import de.pifpafpuf.kawa.offmeta.MetaKey;
-import de.pifpafpuf.kawa.offmeta.OffsetInfo;
-import de.pifpafpuf.kawa.offmeta.OffsetMetaKey;
-import de.pifpafpuf.kawa.offmeta.OffsetMsgValue;
-import de.pifpafpuf.kawa.offmeta.OffsetsKeyDeserializer;
 import de.pifpafpuf.kawa.offmeta.PartitionMeta;
 
 public class QueueWatcher {
@@ -31,36 +24,30 @@ public class QueueWatcher {
   public static final String TOPIC_OFFSET = "__consumer_offsets";
 
   private final KafkaConsumer<Object, byte[]> kafcon;
-  private final KafkaConsumer<MetaKey, byte[]> offcon;
 
   // FIXME: we are using KafkaConsumer in a non thread-safe fashion. Either
   // allocate a new one each time or use a ThreadLocal. But ThreadLocal does
   // not seem to provide a means for controlled freeing/closing of resources.
   // What a nonsense.
-  
-  // TODO: don't always read the __consumer_offsets from some arbitrary
-  // offset backwards. Rather start polling and provide a consolidated status
-  // in-memory any time.
-  
+
   public QueueWatcher(String hostport) {
     Properties props = new Properties();
     props.put("group.id", "some-random-group-id");
     props.put("bootstrap.servers", hostport);
     props.put("enable.auto.commit", "false");
-    props.put("log.message.format.version", "0.9.0");
+    long start = System.nanoTime();
     kafcon = new KafkaConsumer<>(props, GeneralKeyDeserializer.KEY,
         new ByteArrayDeserializer());
     assignAllPartitions(kafcon);
+    long later = System.nanoTime();
+    double delta = (double)(later-start)/1000000;
+    log.info("consumer initialized in "+String.format("%.3fms", delta));
     props.put("group.id", "totally-random-group-id");
 
-    offcon = new KafkaConsumer<>(props, OffsetsKeyDeserializer.INSTANCE,
-        new ByteArrayDeserializer());
-    offcon.assign(assignablePartitions(offcon, TOPIC_OFFSET));
   }
   /*+******************************************************************/
   public void shutdown() {
     kafcon.close();
-    offcon.close();
   }
   /*+**********************************************************************/
   private static void assignAllPartitions(KafkaConsumer<?,?> consumer) {
@@ -173,88 +160,6 @@ public class QueueWatcher {
     }
   }
   /*+******************************************************************/
-  private long getHead(OffsetMetaKey okey) {
-    TopicPartition tp = new TopicPartition(okey.topic, okey.partition);
-    //TODO: for 0.10.0 kafcon.seekToEnd(Collections.singletonList(tp));
-    kafcon.seekToEnd(tp);
-    return kafcon.position(tp);
-  }
-  /*+**********************************************************************/
-  public void rewindOffsets(int count) {
-    List<TopicPartition> tps = assignablePartitions(offcon, TOPIC_OFFSET);
-    //TODO: for 0.10.0 offcon.seekToEnd(tps);
-    offcon.seekToEnd(tps.toArray(new TopicPartition[tps.size()]));
-    for (TopicPartition tp : offcon.assignment()) {
-      long position = offcon.position(tp);
-      if (position>0) {
-        long newpos = Math.max(0, position-count);
-        log.info("seeking "+tp+" to "+newpos);
-        offcon.seek(tp,  newpos);
-      }
-    }
-  }
-  /*+**********************************************************************/
-  public Map<String, OffsetInfo> getLastOffsets(long pollMillis) {
-    Map<String, List<String>> groups = new HashMap<>();
-    assignAllPartitions(kafcon);
-    Map<String, OffsetInfo> curerentState = new HashMap<>();
-    ConsumerRecords<MetaKey, byte[]> data;
-
-    // TODO: There is more data to decode for group messages.
-    
-    for (data=offcon.poll(pollMillis);
-        !data.isEmpty();
-        data=offcon.poll(pollMillis)) {
-      for(ConsumerRecord<MetaKey, byte[]> r : data) {
-        updateState(groups, curerentState, r);
-      }
-    }
-    return curerentState;
-  }
-  /*+******************************************************************/
-  private void updateState(Map<String,List<String>> groups,
-                           Map<String,OffsetInfo> currentState,
-                           ConsumerRecord<MetaKey,byte[]> rec)
-  {
-    MetaKey key = rec.key();
-
-    if (key instanceof OffsetMetaKey) {
-      OffsetMetaKey okey = (OffsetMetaKey)key;
-      OffsetMsgValue value = (OffsetMsgValue)key.decodeValue(rec.value());
-      long tip = getHead(okey);
-      OffsetInfo oinfo = new OffsetInfo(tip, okey, value);
-      OffsetInfo latest = currentState.get(key.getKey());
-      if (latest==null) {
-        currentState.put(key.getKey(), oinfo);
-      } else {
-        latest.setValue(value);
-      }
-      addConsumer(groups, okey);
-      return;
-    }
-
-    GroupMetaKey gkey = (GroupMetaKey)key;
-    boolean dead = null==GroupMsgValue.decode(rec.value(), gkey);
-    List<String> groupKeys = groups.get(gkey.group);
-    if (groupKeys==null) {
-      return;
-    }
-    for (String member : groupKeys) {
-      OffsetInfo oi = currentState.get(member);
-      oi.setDead(dead);
-    }
-  }
-  /*+**********************************************************************/
-  private static void addConsumer(Map<String, List<String>> groups,
-                                  OffsetMetaKey okey) {
-    List<String> keys = groups.get(okey.group);
-    if (keys==null) {
-      keys = new LinkedList<String>();
-      groups.put(okey.group, keys);
-    }
-    keys.add(okey.getKey());
-  }
-  /*+**********************************************************************/
   private static List<TopicPartition>
   assignablePartitions(KafkaConsumer<?,?> con, String topic)
   {

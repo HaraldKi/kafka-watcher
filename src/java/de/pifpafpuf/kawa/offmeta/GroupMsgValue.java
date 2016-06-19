@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 
 import org.apache.kafka.common.protocol.types.Type;
 
-public class GroupMsgValue extends MsgValue {
+public class GroupMsgValue {
   // only partially implemented
   public final short version;
   public final String protocol;

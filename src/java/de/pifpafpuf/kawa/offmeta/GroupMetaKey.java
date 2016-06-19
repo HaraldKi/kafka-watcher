@@ -20,10 +20,5 @@ public class GroupMetaKey extends MetaKey {
       return vOld;
     }
     return vNew;
-  }
-  @Override
-  public MsgValue decodeValue(byte[] value) {
-    return GroupMsgValue.decode(value, this);
-  }
-  
+  }  
 }
