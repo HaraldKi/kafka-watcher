@@ -73,7 +73,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     EmptyElem closedCheck = closedCheckLabel
         .addEmpty("input")
         .setAttr("type", "checkbox");
-    closedCheckLabel.addText("with closed");
+    closedCheckLabel.addText("closed groups");
     pShowClosed.setParam(closedCheck, true);
     if (withClosed) {
       closedCheck.setAttr("checked", "");
@@ -83,7 +83,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     EmptyElem deadCheck = deadCheckLabel
         .addEmpty("input")
         .setAttr("type", "checkbox");
-    deadCheckLabel.addText("with dead");
+    deadCheckLabel.addText("expired offsets");
     pShowDead.setParam(deadCheck, true);
     if (withDead) {
       deadCheck.setAttr("checked", "");
@@ -125,7 +125,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
       }
       OffsetMetaKey ok = oi.key;
       boolean groupClosed = groups.get(ok.group).isExpired(); 
-      if (!withClosed && groupClosed) {
+      if (!withClosed && !withDead && groupClosed) {
         continue;
       }
       Html tr = new Html("tr");
@@ -185,6 +185,11 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     Html table = new Html("table").setAttr("class", "groupdata withdata");
     Html theadrow = table.add("thead").add("tr");
     theadrow.add("th").addText("group");
+    theadrow.add("th").addText("proto type");
+    theadrow.add("th").addText("gen ID");
+    theadrow.add("th").addText("leader ID");
+    theadrow.add("th").addText("protocol");
+    theadrow.add("th").addText("members");
     theadrow.add("th").addText("closed");
     
     List<GroupMsgValue> infos = new ArrayList<>(groups.size());
@@ -202,6 +207,11 @@ public class ShowConsumerOffsets  extends AllServletsParent {
       }
       
       tr.add("td").addText(gv.key.group);
+      tr.add("td").addText(gv.protocolType);
+      tr.add("td").addText(Integer.toString(gv.generationId));
+      tr.add("td").addText(gv.leaderId);
+      tr.add("td").addText(gv.protocol);
+      tr.add("td").addText(Integer.toString(gv.members.size()));
       tr.add("td").addText(gv.isExpired() ? "✘" : "").setAttr("class", "cal");
     }
     
