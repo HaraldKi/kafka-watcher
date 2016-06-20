@@ -20,7 +20,9 @@ public class OffsetMetaKey extends MetaKey {
   public OffsetMsgValue decode(byte[] data, OffsetMsgValue vOld) {
     OffsetMsgValue vNew = OffsetMsgValue.decode(data, this);
     if (vNew==null) {
-      vOld.expire();
+      if (vOld!=null) {
+        vOld.expire();
+      }
       return vOld;
     }
     return vNew;

@@ -161,14 +161,18 @@ public class GroupStateWatcher implements Runnable {
     String key = metaKey.getKey();
     OffsetMsgValue vOld = stateOffsets.get(key);
     OffsetMsgValue vNew = metaKey.decode(data, vOld);
-    stateOffsets.put(key, vNew);
+    if (vNew!=null) {
+      stateOffsets.put(key, vNew);
+    }
   }
   /*+******************************************************************/
   private final void processGroup(GroupMetaKey metaKey, byte[] data) {
     String key = metaKey.getKey();
     GroupMsgValue vOld = stateGroups.get(key);
     GroupMsgValue vNew = metaKey.decode(data, vOld);
-    stateGroups.put(key, vNew);
+    if (vNew!=null) {
+      stateGroups.put(key, vNew);
+    }
   }
   /*+******************************************************************/
   private final List<TopicPartition> assignTopic() {

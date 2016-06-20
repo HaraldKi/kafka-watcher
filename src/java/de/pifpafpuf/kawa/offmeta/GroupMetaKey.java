@@ -16,7 +16,9 @@ public class GroupMetaKey extends MetaKey {
   public GroupMsgValue decode(byte[] data, GroupMsgValue vOld) {
     GroupMsgValue vNew = GroupMsgValue.decode(data, this);
     if (vNew==null) {
-      vOld.expire();
+      if (vOld!=null) {
+        vOld.expire();
+      }
       return vOld;
     }
     return vNew;
