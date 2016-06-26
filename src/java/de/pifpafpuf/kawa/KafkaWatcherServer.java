@@ -1,5 +1,7 @@
 package de.pifpafpuf.kawa;
 
+import java.util.concurrent.TimeUnit;
+
 import javax.servlet.Servlet;
 
 import org.apache.commons.cli.CommandLine;
@@ -19,15 +21,17 @@ import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 
+import de.pifpafpuf.util.ResourcePool;
+
 public class KafkaWatcherServer {
   private static final int TWO_HOURS_SECONDS = 2*3600;
   private static final Logger log = getLogger();
   private static Server server;
 
   // application status
-  private static QueueWatcher qw = null;
+  private static ResourcePool<QueueWatcher> qWatchers;
   private static GroupStateWatcher gsw = null;
-  
+  private static String kafkahostport = null;
   /*+******************************************************************/
   public static void main(String[] argv) throws Exception {
     try {
@@ -41,19 +45,23 @@ public class KafkaWatcherServer {
       if (server!=null) {
         server.stop();
       }
-      if (qw!=null) {
-        qw.shutdown();
+      if (qWatchers!=null) {
+        qWatchers.close();
       }
       e.printStackTrace();
     }
   }
   /*+******************************************************************/
   public static QueueWatcher getQueueWatcher() {
-    return qw;
+    return qWatchers.get();
   }
   /*+******************************************************************/
   public static GroupStateWatcher getGroupStateWatcher() {
     return gsw;
+  }
+  /*+******************************************************************/
+  public static String getKafka() {
+    return kafkahostport;
   }
   /*+******************************************************************/
   private static void setupServer(String[] argv) throws Exception {
@@ -70,9 +78,11 @@ public class KafkaWatcherServer {
       return;
     }
     
-    String kafkahostport = cli.getOptionValue("b", "localhost:9092");
+    kafkahostport = cli.getOptionValue("b", "localhost:9092");
     log.info("contacting kafka server at "+kafkahostport);    
-    qw = new QueueWatcher(kafkahostport);
+    qWatchers = new ResourcePool<>(()->new QueueWatcher(kafkahostport), 
+        TimeUnit.MINUTES.toMillis(1));
+        
     gsw = new GroupStateWatcher(kafkahostport);
     new Thread(gsw, "GroupStateWatcher").start();
     
@@ -154,9 +164,9 @@ public class KafkaWatcherServer {
       } catch (Exception e) {
         log.error("stopping the server did not really go well", e);
       }
-      if (qw!=null) {
+      if (qWatchers!=null) {
         log.info("asking the kafka log watcher to stop");
-        qw.shutdown();
+        qWatchers.close();
       }
       if (gsw!=null) {
         log.info("asking the group state watcher to stop");

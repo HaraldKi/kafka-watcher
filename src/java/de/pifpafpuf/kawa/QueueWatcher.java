@@ -1,5 +1,6 @@
 package de.pifpafpuf.kawa;
 
+import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -19,18 +20,14 @@ import org.apache.log4j.Logger;
 
 import de.pifpafpuf.kawa.offmeta.PartitionMeta;
 
-public class QueueWatcher {
+public class QueueWatcher implements Closeable {
   private static final Logger log = KafkaWatcherServer.getLogger();
   public static final String TOPIC_OFFSET = "__consumer_offsets";
-
+  
   private final KafkaConsumer<Object, byte[]> kafcon;
 
-  // FIXME: we are using KafkaConsumer in a non thread-safe fashion. Either
-  // allocate a new one each time or use a ThreadLocal. But ThreadLocal does
-  // not seem to provide a means for controlled freeing/closing of resources.
-  // What a nonsense.
-
   public QueueWatcher(String hostport) {
+    log.info("starting QueueWatcher to watch Kafka at "+hostport);
     Properties props = new Properties();
     props.put("group.id", "some-random-group-id");
     props.put("bootstrap.servers", hostport);
@@ -46,7 +43,9 @@ public class QueueWatcher {
 
   }
   /*+******************************************************************/
-  public void shutdown() {
+  @Override
+  public void close() {
+    log.info("closing QueueWatcher");
     kafcon.close();
   }
   /*+**********************************************************************/

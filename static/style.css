@@ -104,3 +104,14 @@ table.withdata {
 .expired {
   color: #777;
 }
+
+.uistatus {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  background: #afa;
+  padding: 2px;
+}
+.kafkaaddr {
+  text-align: right;
+}

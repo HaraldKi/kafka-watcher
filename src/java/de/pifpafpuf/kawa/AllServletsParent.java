@@ -61,6 +61,18 @@ public class AllServletsParent extends HttpServlet {
     .setAttr("href", ShowConsumerOffsets.URL)
     .addText("Offsets")
     ;
+    
+    Html status = div.add("div").setAttr("class", "uistatus");
+    
+    String tstamp = df.get().format(System.currentTimeMillis());
+    status.add("div")
+    .setAttr("class", "pagetstamp")
+    .addText(tstamp);
+    
+    status.add("div")
+    .setAttr("class", "kafkaaddr")
+    .addText(KafkaWatcherServer.getKafka())
+    ;
     return div;
   }
   /*+******************************************************************/
