@@ -46,7 +46,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     page.addContent(renderHeader());
     page.addContent(renderForm(withClosed, withDead));
     page.addContent(renderTable(offs, groups, withClosed, withDead));
-    
+
     page.addContent(renderGroups(groups, withClosed));
     sendPage(resp, page);
   }
@@ -119,15 +119,23 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     Collections.sort(infos, CommitstampSorter.INSTANCE);
 
     OffsetMetaKey previous = null;
+    long topicLagTotal = 0;
+    OffsetMetaKey latestOk = null;
     for (OffsetMsgValue oi : infos) {
       if (!withDead && oi.isExpired()) {
         continue;
       }
       OffsetMetaKey ok = oi.key;
-      boolean groupClosed = groups.get(ok.group).isExpired(); 
+      boolean groupClosed = groups.get(ok.group).isExpired();
       if (!withClosed && !withDead && groupClosed) {
         continue;
       }
+
+      if (renderLagTotal(tbody, latestOk, ok.partition, topicLagTotal)) {
+        topicLagTotal = 0;
+      }
+      latestOk = ok;
+
       Html tr = new Html("tr");
       addSkip(tr, previous, ok);
       tr.add("td").addText(dateFormat(oi.commitStamp));
@@ -151,14 +159,16 @@ public class ShowConsumerOffsets  extends AllServletsParent {
       .addText(oi.getHead()<0 ? "?" : Long.toString(oi.getHead()))
       .setAttr("class", "ral")
       ;
-      Html lag = tr.add("td")
-          .addText(oi.getHead()<0 ? "" : Long.toString(oi.getHead()-oi.offset));
+      long lag = oi.getHead()-oi.offset;
+      topicLagTotal += lag;
+      Html lagElem = tr.add("td")
+          .addText(oi.getHead()<0 ? "" : Long.toString(lag));
       if (groupClosed) {
-        lag .setAttr("class", "ral lagstuck");
+        lagElem .setAttr("class", "ral lagstuck");
       } else {
-        lag .setAttr("class", "ral lag");
+        lagElem .setAttr("class", "ral lag");
       }
-      
+
       boolean expired = oi.isExpired();
       Html exp = tr.add("td").addText(dateFormat(oi.expiresStamp));
       if (expired) {
@@ -168,7 +178,33 @@ public class ShowConsumerOffsets  extends AllServletsParent {
       tbody.add(tr);
       previous = ok;
     }
+    renderLagTotal(tbody, latestOk, 0, topicLagTotal);
     return table;
+  }
+  /*+******************************************************************/
+  private boolean renderLagTotal(Html tbody,
+                                 OffsetMetaKey ok, int currentPartition,
+                                 long topicLagTotal) {
+    if (ok==null || currentPartition>=ok.partition) {
+      return false;
+    }
+
+    Html tr = new Html("tr");
+    tr.add("td");
+    tr.add("td").addText(ok.group);
+    tr.add("td").addText(ok.topic);
+    tr.add("td");
+    tr.add("td");
+    tr.add("td");
+    tr.add("td")
+    .setAttr("class", "ral")
+    .addText(Long.toString(topicLagTotal));
+
+    tr.add("td").addText("lag total");
+    tr.add("td");
+
+    tbody.add(tr);
+    return true;
   }
   /*+******************************************************************/
   private void addSkip(Html tr, OffsetMetaKey previous, OffsetMetaKey ok) {
@@ -180,7 +216,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     tr.setAttr("class", "wtopmargin");
   }
   /*+******************************************************************/
-  private Html renderGroups(Map<String, GroupMsgValue> groups, 
+  private Html renderGroups(Map<String, GroupMsgValue> groups,
                             boolean withClosed) {
     Html table = new Html("table").setAttr("class", "groupdata withdata");
     Html theadrow = table.add("thead").add("tr");
@@ -191,7 +227,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     theadrow.add("th").addText("protocol");
     theadrow.add("th").addText("members");
     theadrow.add("th").addText("closed");
-    
+
     List<GroupMsgValue> infos = new ArrayList<>(groups.size());
     infos.addAll(groups.values());
     Html tbody = table.add("tbody");
@@ -205,7 +241,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
         tr.setAttr("class", "wtopmargin");
         first = false;
       }
-      
+
       tr.add("td").addText(gv.key.group);
       tr.add("td").addText(gv.protocolType);
       tr.add("td").addText(Integer.toString(gv.generationId));
@@ -214,7 +250,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
       tr.add("td").addText(Integer.toString(gv.members.size()));
       tr.add("td").addText(gv.isExpired() ? "✘" : "").setAttr("class", "cal");
     }
-    
+
     return table;
   }
   /*+******************************************************************/

@@ -4,9 +4,11 @@ import java.io.IOException;
 import java.io.Writer;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Locale;
 import java.util.TimeZone;
 
 import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.Logger;
@@ -74,6 +76,11 @@ public class AllServletsParent extends HttpServlet {
     .addText(KafkaWatcherServer.getKafka())
     ;
     return div;
+  }
+  /*+******************************************************************/
+  protected final Locale getLocale(HttpServletRequest req) {
+    // more fancy stuff with cookies set by the user may come later
+    return req.getLocale();
   }
   /*+******************************************************************/
   protected final String dateFormat(long timestamp) {
