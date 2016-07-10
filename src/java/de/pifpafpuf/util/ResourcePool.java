@@ -15,7 +15,7 @@ import java.util.function.Supplier;
  * 
  * @param <T> is the type of resource to manage.
  */
-public class ResourcePool<T extends Closeable> implements Closeable {
+public final class ResourcePool<T extends Closeable> implements Closeable {
   private final Supplier<T> factory;
   private final LinkedBlockingQueue<ThreadAssoc<T>> queue =
       new LinkedBlockingQueue<>();
@@ -67,14 +67,14 @@ public class ResourcePool<T extends Closeable> implements Closeable {
   /**
    * <p>
    * Marks this pool for shutdown. If {@link #get} is called afterwards, it
-   * will thrown an exception. Further, the internal timer task checking for
+   * will throw an exception. Further, the internal timer task checking for
    * client threads to have terminated will not be re-scheduled after the
    * last client thread indeed has terminated.
    * </p>
    * 
    * <p>
    * To speed up noticing terminated threads, the expire frequency provided
-   * in the constructor will now be overriden to be just 2000ms (2 seconds)
+   * in the constructor will now be overridden to be just 2000ms (2 seconds)
    * </p>
    * 
    * <p>
@@ -102,13 +102,11 @@ public class ResourcePool<T extends Closeable> implements Closeable {
    * resource will always be the same and in different threads it will be
    * different.
    * </p>
-   * 
-   * @return
    */
   public T get() {
     return resourceHolder.get().value;
   }
-
+  /*+******************************************************************/
   private final class Worker extends TimerTask {
     @Override
     public void run() {
@@ -131,7 +129,7 @@ public class ResourcePool<T extends Closeable> implements Closeable {
       }
     }
   }
-
+  /*+******************************************************************/
   private void silentCloseElem(ThreadAssoc<T> elem) {
     try {
       elem.value.close();
@@ -139,7 +137,7 @@ public class ResourcePool<T extends Closeable> implements Closeable {
       // well then, do nothing, we said we'll keep silent
     }
   }
-
+  /*+******************************************************************/
   private static final class ThreadAssoc<T extends Closeable> {
     public final Thread t;
     public final T value;
