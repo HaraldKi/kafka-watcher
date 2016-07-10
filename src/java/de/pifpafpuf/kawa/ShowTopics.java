@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -23,8 +24,10 @@ public class ShowTopics  extends AllServletsParent {
     QueueWatcher qw = KafkaWatcherServer.getQueueWatcher();
     Map<String, List<PartitionMeta>> topics = qw.topicInfo();
 
+    Locale loc = getLocale(req);
+    
     page.addContent(renderHeader());
-    page.addContent(renderTopics(topics));
+    page.addContent(renderTopics(topics, loc));
     sendPage(resp, page);
   }
   /*+******************************************************************/
@@ -34,7 +37,8 @@ public class ShowTopics  extends AllServletsParent {
     return div;
   }
   /*+******************************************************************/
-  private Html renderTopics(Map<String, List<PartitionMeta>> topics) {
+  private Html renderTopics(Map<String, List<PartitionMeta>> topics,
+                            Locale loc) {
     Html table = new Html("table").setAttr("class",  "topiclist withdata");
     Html thead = table.add("thead");
     Html tbody = table.add("tbody");
@@ -44,11 +48,11 @@ public class ShowTopics  extends AllServletsParent {
     tr.add("th").addEncoded("parti-<br/>tion");
 //    tr.add("th").addText("first offset")
 //    .setAttr("title", "unreliable data");
-    tr.add("th").addText("head offset");
+    tr.add("th").addEncoded("head<br/>offset");
 
     List<String> sortedTopics = sortTopics(topics.keySet());
     for (String topicName : sortedTopics) {
-      renderTopic(tbody, topicName, topics.get(topicName));
+      renderTopic(tbody, topicName, topics.get(topicName), loc);
     }
     return table;
   }
@@ -63,7 +67,9 @@ public class ShowTopics  extends AllServletsParent {
     }    
   };
   
-  private void renderTopic(Html tbody, String topic, List<PartitionMeta> pmeta) {
+  private void renderTopic(Html tbody, String topic, 
+                           List<PartitionMeta> pmeta,
+                           Locale loc) {
     Collections.sort(pmeta, byPartition);
     int partition = 0;
     for (PartitionMeta pm : pmeta) {
@@ -87,12 +93,8 @@ public class ShowTopics  extends AllServletsParent {
       .setAttr("class", "ral")
       .addText(Integer.toString(partition++));
 
-//      Html offset = new Html("td");
-//      offset.addText(Long.toString(pm.firstOffset));
-//      row.add(offset);
-
-      Html offset = new Html("td");
-      offset.addText(Long.toString(pm.headOffset));
+      Html offset = new Html("td").setAttr("class", "ral");
+      offset.addText(localeFormatLong(loc, pm.headOffset));
       row.add(offset);
       tbody.add(row);
     }

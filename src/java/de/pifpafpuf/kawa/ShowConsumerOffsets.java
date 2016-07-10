@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
@@ -42,10 +43,11 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     boolean withClosed = pShowClosed.fromFirst(req, false);
     boolean withDead = pShowDead.fromFirst(req, false);
 
+    Locale loc = getLocale(req);
     page.addContent(renderRefresh(refreshSecs));
     page.addContent(renderHeader());
     page.addContent(renderForm(withClosed, withDead));
-    page.addContent(renderTable(offs, groups, withClosed, withDead));
+    page.addContent(renderTable(offs, groups, withClosed, withDead, loc));
 
     page.addContent(renderGroups(groups, withClosed));
     sendPage(resp, page);
@@ -99,7 +101,8 @@ public class ShowConsumerOffsets  extends AllServletsParent {
   /*+******************************************************************/
   private EmptyElem renderTable(Map<String, OffsetMsgValue> offs,
                                 Map<String, GroupMsgValue> groups,
-                                boolean withClosed, boolean withDead) {
+                                boolean withClosed, boolean withDead,
+                                Locale loc) {
     Html table = new Html("table").setAttr("class", "groupdata withdata");
     Html theadrow = table.add("thead").add("tr");
     theadrow.add("th").addText("committed (UTC)");
@@ -131,7 +134,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
         continue;
       }
 
-      if (renderLagTotal(tbody, latestOk, ok.partition, topicLagTotal)) {
+      if (renderLagTotal(tbody, latestOk, ok.partition, topicLagTotal, loc)) {
         topicLagTotal = 0;
       }
       latestOk = ok;
@@ -152,17 +155,17 @@ public class ShowConsumerOffsets  extends AllServletsParent {
       .setAttr("class", "ral");
 
       tr.add("td")
-      .addText(Long.toString(oi.offset))
+      .addText(localeFormatLong(loc, oi.offset))
       .setAttr("class", "ral")
       ;
       tr.add("td")
-      .addText(oi.getHead()<0 ? "?" : Long.toString(oi.getHead()))
+      .addText(oi.getHead()<0 ? "?" : localeFormatLong(loc, oi.getHead()))
       .setAttr("class", "ral")
       ;
       long lag = oi.getHead()-oi.offset;
       topicLagTotal += lag;
       Html lagElem = tr.add("td")
-          .addText(oi.getHead()<0 ? "" : Long.toString(lag));
+          .addText(oi.getHead()<0 ? "" : localeFormatLong(loc, lag));
       if (groupClosed) {
         lagElem .setAttr("class", "ral lagstuck");
       } else {
@@ -178,13 +181,14 @@ public class ShowConsumerOffsets  extends AllServletsParent {
       tbody.add(tr);
       previous = ok;
     }
-    renderLagTotal(tbody, latestOk, 0, topicLagTotal);
+    renderLagTotal(tbody, latestOk, 0, topicLagTotal, loc);
     return table;
   }
   /*+******************************************************************/
   private boolean renderLagTotal(Html tbody,
                                  OffsetMetaKey ok, int currentPartition,
-                                 long topicLagTotal) {
+                                 long topicLagTotal,
+                                 Locale loc) {
     if (ok==null || currentPartition>=ok.partition) {
       return false;
     }
@@ -198,7 +202,7 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     tr.add("td");
     tr.add("td")
     .setAttr("class", "ral")
-    .addText(Long.toString(topicLagTotal));
+    .addText(localeFormatLong(loc, topicLagTotal));
 
     tr.add("td").addText("lag total");
     tr.add("td");

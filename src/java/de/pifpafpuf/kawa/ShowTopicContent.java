@@ -6,6 +6,7 @@ import java.io.ObjectInputStream;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -70,6 +71,8 @@ public class ShowTopicContent  extends AllServletsParent {
 
     QueueWatcher qw = KafkaWatcherServer.getQueueWatcher();
 
+    Locale loc = getLocale(req);
+    
     List<ConsumerRecord<Object, byte[]>> recs =
         qw.readRecords(topicName, offset, maxRecs, pattern);
 
@@ -77,7 +80,7 @@ public class ShowTopicContent  extends AllServletsParent {
     page.addContent(renderHeader(topicName));
     page.addContent(renderForm(topicName, regex, caseFold,
                                eMsg, offset, maxRecs));
-    page.addContent(renderTable(recs));
+    page.addContent(renderTable(recs, loc));
     sendPage(resp, page);
   }
   /*+******************************************************************/
@@ -156,7 +159,8 @@ public class ShowTopicContent  extends AllServletsParent {
     return form;
   }
   /*+******************************************************************/
-  private Html renderTable(List<ConsumerRecord<Object, byte[]>> recs) {
+  private Html renderTable(List<ConsumerRecord<Object, byte[]>> recs,
+                           Locale loc) {
     Html table = new Html("table").setAttr("class", "records withdata");
     Html thead = table.add("thead");
 
@@ -184,7 +188,7 @@ public class ShowTopicContent  extends AllServletsParent {
       }
       tr.add("td").addText(created);
       tr.add("td").addText(Long.toString(partition));
-      tr.add("td").addText(Long.toString(rec.offset()));
+      tr.add("td").addText(localeFormatLong(loc, rec.offset()));
       tr.add("td")
       .setAttr("class", "recKey")
       .addText(rec.key().toString());

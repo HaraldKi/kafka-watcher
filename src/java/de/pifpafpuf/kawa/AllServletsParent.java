@@ -83,6 +83,10 @@ public class AllServletsParent extends HttpServlet {
     return req.getLocale();
   }
   /*+******************************************************************/
+  protected final String localeFormatLong(Locale l, long num) {
+    return String.format(l, "%,d", num); 
+  }
+  /*+******************************************************************/
   protected final String dateFormat(long timestamp) {
     return df.get().format(timestamp);
   }

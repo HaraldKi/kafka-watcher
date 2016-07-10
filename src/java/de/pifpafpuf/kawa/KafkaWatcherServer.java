@@ -103,7 +103,6 @@ public class KafkaWatcherServer {
         new ServletContextHandler(ServletContextHandler.SESSIONS);
     scContext.setContextPath("/");
 
-    addServlet(scContext, ShowFileServlet.class);
     addServlet(scContext, ShowTopics.class);
     addServlet(scContext, ShowTopicContent.class);
     addServlet(scContext, ShowConsumerOffsets.class);
