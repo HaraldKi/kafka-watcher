@@ -5,8 +5,6 @@ import java.io.Writer;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
-import java.util.TimeZone;
-
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -20,13 +18,16 @@ import de.pifpafpuf.web.urlparam.UrlParamCodec;
 
 public class AllServletsParent extends HttpServlet {
   private static final Logger log = KafkaWatcherServer.getLogger();
-  private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+  private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ssZ";
   private static final ThreadLocal<DateFormat> df =
       new ThreadLocal<DateFormat>() {
     @Override
     protected DateFormat initialValue() {
       SimpleDateFormat result = new SimpleDateFormat(DATE_FORMAT);
-      result.setTimeZone(TimeZone.getTimeZone("UTC"));
+      // TODO: get time zone from browser. Problem: this seems to require
+      // javascript, where I currently still fine without
+
+      //result.setTimeZone(TimeZone.getTimeZone("UTC"));
       return result;
     }
   };
@@ -46,6 +47,8 @@ public class AllServletsParent extends HttpServlet {
   HtmlPage initPage(String title) {
     HtmlPage page = new HtmlPage(title);
     page.addCss("style.css");
+    //page.addJs("jquery-3.1.0.slim.min.js");
+    //page.addJs("kafka-watcher.js");
 
     page.addContent(renderNavi());
     return page;
@@ -63,14 +66,14 @@ public class AllServletsParent extends HttpServlet {
     .setAttr("href", ShowConsumerOffsets.URL)
     .addText("Offsets")
     ;
-    
+
     Html status = div.add("div").setAttr("class", "uistatus");
-    
+
     String tstamp = df.get().format(System.currentTimeMillis());
     status.add("div")
     .setAttr("class", "pagetstamp")
     .addText(tstamp);
-    
+
     status.add("div")
     .setAttr("class", "kafkaaddr")
     .addText(KafkaWatcherServer.getKafka())
@@ -84,7 +87,7 @@ public class AllServletsParent extends HttpServlet {
   }
   /*+******************************************************************/
   protected final String localeFormatLong(Locale l, long num) {
-    return String.format(l, "%,d", num); 
+    return String.format(l, "%,d", num);
   }
   /*+******************************************************************/
   protected final String dateFormat(long timestamp) {

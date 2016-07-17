@@ -14,7 +14,7 @@
    <url url="https://raw.githubusercontent.com/HaraldKi/hkAntLib/master/package.xml"/>
   </import>
   -->
-  <property name="version" value="1.5.0"/>
+  <property name="version" value="1.5.1"/>
   <property name="project.java.version" value="1.8"/>
 
   <target name="compile">
@@ -25,9 +25,19 @@
     <do-dist-jar/>
   </target>
 
-  <target name="distzip" depends="jar">
+  <target name="versionfile">
+    <tstamp>
+      <format property="tstamp" pattern="yyyy-MM-dd_HH:mm:ss Z"/>
+    </tstamp>
+    <mkdir dir="build/tmp"/>
+    <echo file="build/tmp/version-${version}.txt"
+          message="packaged on ${tstamp}${line.separator}"/>
+  </target>
+  <target name="distzip" depends="jar, versionfile">
     <property name="d" value="kafka-watcher-${version}"/>
     <zip destfile="build/sitecontent/download/${d}.zip">
+      <zipfileset dir="build/tmp" includes="version*txt"
+                  prefix="${d}"/>
       <zipfileset dir="build/sitecontent/download/"
                   includes="kafka-watcher-${version}.jar"
                   prefix="${d}/libs"/>
