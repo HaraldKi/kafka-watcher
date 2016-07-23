@@ -5,46 +5,52 @@ import java.io.IOException;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.function.Supplier;
 
 /**
  * <p>
  * maintains a pool of resources in <code>ThreadLocal</code> variables and
  * closes the resouces once it detects that the using thread has terminated.
  * </p>
- * 
+ *
  * @param <T> is the type of resource to manage.
  */
 public final class ResourcePool<T extends Closeable> implements Closeable {
-  private final Supplier<T> factory;
-  private final LinkedBlockingQueue<ThreadAssoc<T>> queue =
+  private final FailableFactory<T> factory;
+  private final LinkedBlockingQueue<ThreadVal<T>> queue =
       new LinkedBlockingQueue<>();
   private final Timer timer;
   private volatile long expireFrequencyMillis;
   private volatile boolean closed;
 
-  private final ThreadLocal<ThreadAssoc<T>>
-  resourceHolder = new ThreadLocal<ThreadAssoc<T>>() {
+  private final ThreadValue resourceHolder = new ThreadValue();
+  /*+******************************************************************/
+  private final class ThreadValue
+  extends ThreadLocal<ThreadVal<T>> {
+
     @Override
-    protected ThreadAssoc<T> initialValue() {
+    protected ThreadVal<T> initialValue() {
       // synchronize with timer.cancel() in TimerTask
-      synchronized(ResourcePool.this) { 
+      synchronized(ResourcePool.this) {
         if (closed) {
           throw new IllegalStateException("ResourcePool already closed, cannot "
               + "hand out newly created resources");
         }
-        ThreadAssoc<T> result =
-            new ThreadAssoc<T>(Thread.currentThread(), factory.get());
-        requeue(result);
-        return result;
+        ThreadVal<T> result;
+        try {
+          result = new ThreadVal<T>(Thread.currentThread(), factory.get(), null);
+          requeue(result);
+          return result;
+        } catch (CreateFailedException e) {
+          return new ThreadVal<T>(null, null, e);
+        }
       }
     }
-  };
+  }
   /*+******************************************************************/
-  
+
   /**
    * creates the pool.
-   * 
+   *
    * @param factory is used to create resources, one per thread and held in a
    *        <code>ThreadLocal</code> once created.
    * @param expireFrequencyMillis is the frequency with which it is checked
@@ -52,14 +58,14 @@ public final class ResourcePool<T extends Closeable> implements Closeable {
    *        value of several seconds if not minutes, depending on how threads
    *        are expected to be created and terminated.
    */
-  public ResourcePool(Supplier<T> factory, long expireFrequencyMillis) {
+  public ResourcePool(FailableFactory<T> factory, long expireFrequencyMillis) {
     this.factory = factory;
     this.expireFrequencyMillis = expireFrequencyMillis;
     this.timer = new Timer("ResourcePool("+factory+")");
     this.timer.schedule(new Worker(),  expireFrequencyMillis);
   }
 
-  private void requeue(ThreadAssoc<T> elem) {
+  private void requeue(ThreadVal<T> elem) {
     elem.setCheckpoint(expireFrequencyMillis);
     queue.add(elem);
   }
@@ -71,12 +77,12 @@ public final class ResourcePool<T extends Closeable> implements Closeable {
    * client threads to have terminated will not be re-scheduled after the
    * last client thread indeed has terminated.
    * </p>
-   * 
+   *
    * <p>
    * To speed up noticing terminated threads, the expire frequency provided
    * in the constructor will now be overridden to be just 2000ms (2 seconds)
    * </p>
-   * 
+   *
    * <p>
    * This method does not block, but only sets an internal flag.
    * </p>
@@ -102,15 +108,24 @@ public final class ResourcePool<T extends Closeable> implements Closeable {
    * resource will always be the same and in different threads it will be
    * different.
    * </p>
+   * 
+   * @throws CreateFailedException if the resource could not be created. In
+   *         this case, a subsequent call to this method will again try to
+   *         create the resource.
    */
-  public T get() {
-    return resourceHolder.get().value;
+  public T get() throws CreateFailedException {
+    ThreadVal<T> tv = resourceHolder.get();
+    if (tv.e!=null) {
+      resourceHolder.remove();
+      throw tv.e;
+    }
+    return tv.value;
   }
   /*+******************************************************************/
   private final class Worker extends TimerTask {
     @Override
     public void run() {
-      ThreadAssoc<T> elem = null;
+      ThreadVal<T> elem = null;
       while (null!=(elem=queue.peek()) && elem.checkpointDelay()<=0) {
         queue.remove();
         if (elem.t.isAlive()) {
@@ -130,7 +145,7 @@ public final class ResourcePool<T extends Closeable> implements Closeable {
     }
   }
   /*+******************************************************************/
-  private void silentCloseElem(ThreadAssoc<T> elem) {
+  private void silentCloseElem(ThreadVal<T> elem) {
     try {
       elem.value.close();
     } catch (IOException e) {
@@ -138,13 +153,16 @@ public final class ResourcePool<T extends Closeable> implements Closeable {
     }
   }
   /*+******************************************************************/
-  private static final class ThreadAssoc<T extends Closeable> {
+  private static final class ThreadVal<T extends Closeable> {
     public final Thread t;
     public final T value;
+    public final CreateFailedException e;
     private volatile long checkpoint = 0L;
-    public ThreadAssoc(Thread t, T value) {
+
+    public ThreadVal(Thread t, T value, CreateFailedException e) {
       this.t = t;
       this.value = value;
+      this.e = e;
     }
     void setCheckpoint(long fromNowMillis) {
       this.checkpoint = System.currentTimeMillis() + fromNowMillis;

@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import de.pifpafpuf.kawa.offmeta.PartitionMeta;
+import de.pifpafpuf.util.CreateFailedException;
 import de.pifpafpuf.web.html.Html;
 import de.pifpafpuf.web.html.HtmlPage;
 
@@ -21,8 +22,15 @@ public class ShowTopics  extends AllServletsParent {
   @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp) {
     HtmlPage page = initPage("show topics &mdash; Kavi");
-    QueueWatcher qw = KafkaWatcherServer.getQueueWatcher();
-    Map<String, List<PartitionMeta>> topics = qw.topicInfo();
+    QueueWatcher qw;
+    Map<String, List<PartitionMeta>> topics;
+    try {
+      qw = KafkaWatcherServer.getQueueWatcher();
+      topics = qw.topicInfo();
+    } catch (CreateFailedException | CheckedKafkaException e) {
+      topics = Collections.emptyMap();
+      page.addContent(renderProblem(e.getCause()));
+    }
 
     Locale loc = getLocale(req);
     

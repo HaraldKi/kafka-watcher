@@ -1,6 +1,9 @@
 package de.pifpafpuf.kawa;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -130,5 +133,24 @@ public class AllServletsParent extends HttpServlet {
       a.addText("stop auto-refresh");
     }
     return a;
+  }
+  /*+******************************************************************/
+  protected final Html renderProblem(Throwable ex) {
+    Html div = new Html("div").setAttr("class", "error");
+    div.add("p").addText("problems attaching to Kafka:");
+    div.add("pre").addText(stacktrace(ex));
+    return div;
+  }
+  /*+******************************************************************/
+  private final String stacktrace(Throwable t) {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    PrintStream p;
+    try {
+      p = new PrintStream(out, false, "UTF-8");
+      t.printStackTrace(p);
+      return out.toString("UTF-8");
+    } catch (UnsupportedEncodingException e) {
+      return "this should never happen, but it seems we do not have UTF-8";
+    }
   }
 }

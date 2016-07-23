@@ -2,8 +2,6 @@ package de.pifpafpuf.kawa;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -30,6 +28,7 @@ import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 
+import de.pifpafpuf.util.CreateFailedException;
 import de.pifpafpuf.util.ResourcePool;
 
 public class KafkaWatcherServer {
@@ -42,7 +41,7 @@ public class KafkaWatcherServer {
   private static GroupStateWatcher gsw = null;
   private static String kafkahostport = null;
   private static String version = "<unset>";
-  
+
   /*+******************************************************************/
   public static void main(String[] argv) throws Exception {
     try {
@@ -63,7 +62,7 @@ public class KafkaWatcherServer {
     }
   }
   /*+******************************************************************/
-  public static QueueWatcher getQueueWatcher() {
+  public static QueueWatcher getQueueWatcher() throws CreateFailedException {
     return qWatchers.get();
   }
   /*+******************************************************************/
@@ -94,19 +93,19 @@ public class KafkaWatcherServer {
     }
 
     log.info("starting kafka connection setup");
-    
+
     kafkahostport = cli.getOptionValue("b", "localhost:9092");
-    log.info("contacting kafka server at "+kafkahostport);    
-    qWatchers = new ResourcePool<>(()->new QueueWatcher(kafkahostport), 
-        TimeUnit.MINUTES.toMillis(1));
-        
+    log.info("contacting kafka server at "+kafkahostport);
+    qWatchers = new ResourcePool<>(()->new QueueWatcher(kafkahostport),
+                                   TimeUnit.MINUTES.toMillis(1));
+
     gsw = new GroupStateWatcher(kafkahostport);
     new Thread(gsw, "GroupStateWatcher").start();
-    
+
     version = findVersion();
     log.info("starting server setup");
     System.setProperty("org.eclipse.jetty.util.log.class",
-                       "de.pifpafpuf.util.JettyLog4jLogging");    
+                       "de.pifpafpuf.util.JettyLog4jLogging");
     QueuedThreadPool threadPool = new QueuedThreadPool(6, 2);
     server = new Server(threadPool);
 
@@ -137,7 +136,7 @@ public class KafkaWatcherServer {
     handlers.addHandler(fileHandler);
     handlers.addHandler(scContext);
     Handler rootRedir = rewriteRootHander(handlers);
-    
+
     server.setHandler(rootRedir);
     server.start();
     log.info("Server now set up");
@@ -196,7 +195,7 @@ public class KafkaWatcherServer {
   }
   /*+******************************************************************/
   private static String findVersion() {
-    Path firstFile = null; // there should be only one, if installed properly 
+    Path firstFile = null; // there should be only one, if installed properly
     Path root = Paths.get(".");
     try (DirectoryStream<Path> s =
         Files.newDirectoryStream(root, "version-*.txt")) {
@@ -228,7 +227,7 @@ public class KafkaWatcherServer {
   /*+******************************************************************/
   private static Options createOptions() {
     Options opts = new Options();
-    Option hostport = 
+    Option hostport =
         Option.builder("b")
         .longOpt("bootstrap-servers")
         .argName("hostport")
@@ -260,7 +259,7 @@ public class KafkaWatcherServer {
   private static void usage(Options opts, String message) {
     HelpFormatter hf = new HelpFormatter();
     hf.printHelp(KafkaWatcherServer.class.getName(),
-                 "    start server to watch a Kafka server", opts, "", true); 
+                 "    start server to watch a Kafka server", opts, "", true);
     System.out.printf("%n%s%n", message);
   }
 }

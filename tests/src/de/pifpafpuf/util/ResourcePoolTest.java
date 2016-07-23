@@ -59,7 +59,9 @@ public class ResourcePoolTest {
   }
   /*+******************************************************************/
   @Test
-  public void bombOnLateGetTest() throws InterruptedException {
+  public void bombOnLateGetTest() 
+      throws InterruptedException, CreateFailedException 
+  {
     rpool = new ResourcePool<>(() -> new Reporter(), 200);
     Runner rFine = new Runner(rpool, queue);
     new Thread(rFine).start();
@@ -116,17 +118,25 @@ public class ResourcePoolTest {
       sem.release();
       t.join();
     }
+    private Reporter get() {
+      try {
+        return rpool.get();
+      } catch (CreateFailedException e) {
+        throw new RuntimeException(e);
+      }
+    }
+    
     @Override
     public void run() {
       this.t = Thread.currentThread();
-      rep = rpool.get();
+      rep = get();
       q.add(rep);
       try {
         sem.acquire();
       } catch (InterruptedException e) {
         throw new IllegalStateException("unexpected interrupt");
       }
-      rep2 = rpool.get();
+      rep2 = get();
     }
   }
   /*+******************************************************************/

@@ -13,12 +13,14 @@ import java.util.regex.Pattern;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.log4j.Logger;
 
 import de.pifpafpuf.kawa.offmeta.PartitionMeta;
+import de.pifpafpuf.util.CreateFailedException;
 
 public class QueueWatcher implements Closeable {
   private static final Logger log = KafkaWatcherServer.getLogger();
@@ -26,21 +28,25 @@ public class QueueWatcher implements Closeable {
   
   private final KafkaConsumer<Object, byte[]> kafcon;
 
-  public QueueWatcher(String hostport) {
+  public QueueWatcher(String hostport) throws CreateFailedException {
     log.info("starting QueueWatcher to watch Kafka at "+hostport);
     Properties props = new Properties();
     props.put("group.id", "some-random-group-id");
     props.put("bootstrap.servers", hostport);
     props.put("enable.auto.commit", "false");
+    props.put("session.timeout.ms", 5000);
+    props.put("request.timeout.ms", 5001);
     long start = System.nanoTime();
     kafcon = new KafkaConsumer<>(props, GeneralKeyDeserializer.KEY,
         new ByteArrayDeserializer());
-    assignAllPartitions(kafcon);
+    try {
+      assignAllPartitions();
+    } catch (CheckedKafkaException e) {
+      throw new CreateFailedException("see cause", e);
+    }
     long later = System.nanoTime();
     double delta = (double)(later-start)/1000000;
     log.info("consumer initialized in "+String.format("%.3fms", delta));
-    props.put("group.id", "totally-random-group-id");
-
   }
   /*+******************************************************************/
   @Override
@@ -49,59 +55,74 @@ public class QueueWatcher implements Closeable {
     kafcon.close();
   }
   /*+**********************************************************************/
-  private static void assignAllPartitions(KafkaConsumer<?,?> consumer) {
+  private void assignAllPartitions() throws CheckedKafkaException {
     List<TopicPartition> assigns = new LinkedList<>();
-    for (String topic : consumer.listTopics().keySet()) {
-      assigns.addAll(assignablePartitions(consumer, topic));
+    try {
+      for (String topic : kafcon.listTopics().keySet()) {
+        assigns.addAll(assignablePartitions(kafcon, topic));
+      }
+      kafcon.assign(assigns);
+    } catch (KafkaException e) {
+      throw new CheckedKafkaException("could not assign partitions", e);
     }
-    consumer.assign(assigns);
   }
   /*+*********************************************************************/
-  public Map<String, List<PartitionMeta>> topicInfo() {
-    Map<String, List<PartitionMeta>> result = new HashMap<>();
-    Map<String, List<PartitionInfo>> m = kafcon.listTopics();
-
-    for (Map.Entry<String, List<PartitionInfo>> elem : m.entrySet()) {
-      List<PartitionMeta> l = new LinkedList<>();
-      String topic = elem.getKey();
-      result.put(topic, l);
-      setOffsets(topic, -1);
-      for (PartitionInfo pi : elem.getValue()) {
-        TopicPartition tp = tpFromPi(pi);
-        long headOffset = kafcon.position(tp);
-        kafcon.seek(tp , 0);
-        //kafcon.poll(100);
-        long firstOffset = kafcon.position(tp);
-        l.add(new PartitionMeta(pi.topic(), pi.partition(),
-                                firstOffset, headOffset+1));
+  public Map<String, List<PartitionMeta>> topicInfo() 
+      throws CheckedKafkaException 
+  {
+    try {
+      Map<String, List<PartitionMeta>> result = new HashMap<>();
+      Map<String, List<PartitionInfo>> m = kafcon.listTopics();
+      
+      for (Map.Entry<String, List<PartitionInfo>> elem : m.entrySet()) {
+        List<PartitionMeta> l = new LinkedList<>();
+        String topic = elem.getKey();
+        result.put(topic, l);
+        setOffsets(topic, -1);
+        for (PartitionInfo pi : elem.getValue()) {
+          TopicPartition tp = tpFromPi(pi);
+          long headOffset = kafcon.position(tp);
+          kafcon.seek(tp , 0);
+          //kafcon.poll(100);
+          long firstOffset = kafcon.position(tp);
+          l.add(new PartitionMeta(pi.topic(), pi.partition(),
+                                  firstOffset, headOffset+1));
+        }
       }
+      return result;
+    } catch (KafkaException e) {
+      throw new CheckedKafkaException("could not get topic infos", e);
     }
-    return result;
   }
   /*+******************************************************************/
   public List<ConsumerRecord<Object, byte[]>>
   readRecords(String topic, long offset, int maxRecs, Pattern pattern)
+      throws CheckedKafkaException
   {
-    setOffsets(topic, offset);
-
-    int numPartitions = kafcon.partitionsFor(topic).size();
-    maxRecs *= numPartitions;
-    Matcher m = pattern.matcher("");
-    List<ConsumerRecord<Object, byte[]>> result = new LinkedList<>();
-    final long WAIT = 1000;
-    boolean timedout = false;
-    while (!timedout && result.size()<maxRecs) {
-      long now = System.currentTimeMillis();
-      ConsumerRecords<Object, byte[]> recs = kafcon.poll(WAIT);
-      long later = System.currentTimeMillis();
-      timedout = now+WAIT<=later;
-      if (log.isDebugEnabled()) {
-        log.debug("got "+recs.count()+" records : after "+(later-now)+"ms"
-            + " for "+recs.partitions()+", timedout="+timedout);
+    try {
+      setOffsets(topic, offset);
+      
+      int numPartitions = kafcon.partitionsFor(topic).size();
+      maxRecs *= numPartitions;
+      Matcher m = pattern.matcher("");
+      List<ConsumerRecord<Object, byte[]>> result = new LinkedList<>();
+      final long WAIT = 1000;
+      boolean timedout = false;
+      while (!timedout && result.size()<maxRecs) {
+        long now = System.currentTimeMillis();
+        ConsumerRecords<Object, byte[]> recs = kafcon.poll(WAIT);
+        long later = System.currentTimeMillis();
+        timedout = now+WAIT<=later;
+        if (log.isDebugEnabled()) {
+          log.debug("got "+recs.count()+" records : after "+(later-now)+"ms"
+              + " for "+recs.partitions()+", timedout="+timedout);
+        }
+        roundRobinExtract(result, recs, maxRecs, m);
       }
-      roundRobinExtract(result, recs, maxRecs, m);
+      return result;
+    } catch (KafkaException e) {
+      throw new CheckedKafkaException("could not read records", e);
     }
-    return result;
   }
   /*+******************************************************************/
   private void roundRobinExtract(List<ConsumerRecord<Object,byte[]>> result,

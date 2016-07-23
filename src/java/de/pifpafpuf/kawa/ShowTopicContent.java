@@ -19,6 +19,7 @@ import de.pifpafpuf.kawa.offmeta.GroupMetaKey;
 import de.pifpafpuf.kawa.offmeta.GroupMsgValue;
 import de.pifpafpuf.kawa.offmeta.OffsetMetaKey;
 import de.pifpafpuf.kawa.offmeta.OffsetMsgValue;
+import de.pifpafpuf.util.CreateFailedException;
 import de.pifpafpuf.web.html.Html;
 import de.pifpafpuf.web.html.HtmlPage;
 import de.pifpafpuf.web.urlparam.BooleanCodec;
@@ -69,17 +70,21 @@ public class ShowTopicContent  extends AllServletsParent {
       eMsg = e.getMessage();
     }
 
-    QueueWatcher qw = KafkaWatcherServer.getQueueWatcher();
-
-    Locale loc = getLocale(req);
-    
-    List<ConsumerRecord<Object, byte[]>> recs =
-        qw.readRecords(topicName, offset, maxRecs, pattern);
+    QueueWatcher qw = null;
+    List<ConsumerRecord<Object, byte[]>> recs ;
+    try {
+      qw = KafkaWatcherServer.getQueueWatcher();
+      recs = qw.readRecords(topicName, offset, maxRecs, pattern);
+    } catch (CreateFailedException|CheckedKafkaException e) {
+      recs = Collections.emptyList();
+      page.addContent(renderProblem(e.getCause()));
+    }
 
     page.addContent(renderRefreshButton(refreshSecs, topicName, offset));
     page.addContent(renderHeader(topicName));
     page.addContent(renderForm(topicName, regex, caseFold,
                                eMsg, offset, maxRecs));
+    Locale loc = getLocale(req);    
     page.addContent(renderTable(recs, loc));
     sendPage(resp, page);
   }
