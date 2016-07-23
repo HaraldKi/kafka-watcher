@@ -33,6 +33,7 @@ public class AllServletsParent extends HttpServlet {
   };
 
   void sendPage(HttpServletResponse resp, HtmlPage page) {
+    page.addContent(renderFooter());
     resp.setContentType("text/html");
     resp.setCharacterEncoding("UTF-8");
 
@@ -52,6 +53,17 @@ public class AllServletsParent extends HttpServlet {
 
     page.addContent(renderNavi());
     return page;
+  }
+  /*+******************************************************************/
+  private EmptyElem renderFooter() {
+    Html footer = new Html("div")
+        .setAttr("class", "footer")
+        .addText(KafkaWatcherServer.getVersion());
+    footer.add("a")
+    .setAttr("href", "https://github.com/HaraldKi/kafka-watcher")
+    .setAttr("target", "_blank")
+    .addText("source on GitHub");
+    return footer;
   }
   /*+******************************************************************/
   private EmptyElem renderNavi() {
