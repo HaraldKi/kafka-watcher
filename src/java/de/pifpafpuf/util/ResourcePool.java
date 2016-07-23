@@ -6,6 +6,10 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import org.apache.log4j.Logger;
+
+import de.pifpafpuf.kawa.KafkaWatcherServer;
+
 /**
  * <p>
  * maintains a pool of resources in <code>ThreadLocal</code> variables and
@@ -37,11 +41,11 @@ public final class ResourcePool<T extends Closeable> implements Closeable {
         }
         ThreadVal<T> result;
         try {
-          result = new ThreadVal<T>(Thread.currentThread(), factory.get(), null);
+          result = new ThreadVal<T>(factory.get(), null);
           requeue(result);
           return result;
         } catch (CreateFailedException e) {
-          return new ThreadVal<T>(null, null, e);
+          return new ThreadVal<T>(null, e);
         }
       }
     }
@@ -108,7 +112,7 @@ public final class ResourcePool<T extends Closeable> implements Closeable {
    * resource will always be the same and in different threads it will be
    * different.
    * </p>
-   * 
+   *
    * @throws CreateFailedException if the resource could not be created. In
    *         this case, a subsequent call to this method will again try to
    *         create the resource.
@@ -159,8 +163,8 @@ public final class ResourcePool<T extends Closeable> implements Closeable {
     public final CreateFailedException e;
     private volatile long checkpoint = 0L;
 
-    public ThreadVal(Thread t, T value, CreateFailedException e) {
-      this.t = t;
+    public ThreadVal(T value, CreateFailedException e) {
+      this.t = Thread.currentThread();
       this.value = value;
       this.e = e;
     }

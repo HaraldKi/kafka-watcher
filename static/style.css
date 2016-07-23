@@ -125,3 +125,15 @@ table.withdata {
   border-top: 1px solid black;
   text-align: center;
 }
+
+.error p:first-child {
+  margin-bottom: 0px;
+}
+.stacktrace {
+  margin-top: 2px;
+  height: 2em;
+  overflow-y: hidden;
+}
+.stacktrace:hover {
+  height: auto;
+}

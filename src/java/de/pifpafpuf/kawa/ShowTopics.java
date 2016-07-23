@@ -23,12 +23,13 @@ public class ShowTopics  extends AllServletsParent {
   public void doGet(HttpServletRequest req, HttpServletResponse resp) {
     HtmlPage page = initPage("show topics &mdash; Kavi");
     QueueWatcher qw;
-    Map<String, List<PartitionMeta>> topics;
+    Map<String, List<PartitionMeta>> topics = Collections.emptyMap();;
     try {
       qw = KafkaWatcherServer.getQueueWatcher();
       topics = qw.topicInfo();
-    } catch (CreateFailedException | CheckedKafkaException e) {
-      topics = Collections.emptyMap();
+    } catch (CheckedKafkaException e) {
+      page.addContent(renderProblem(e));
+    } catch (CreateFailedException e) {
       page.addContent(renderProblem(e.getCause()));
     }
 

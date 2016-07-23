@@ -7,6 +7,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,12 +25,15 @@ import de.pifpafpuf.util.CreateFailedException;
 
 public class QueueWatcher implements Closeable {
   private static final Logger log = KafkaWatcherServer.getLogger();
+  private static final AtomicInteger num = new AtomicInteger(-1);
   public static final String TOPIC_OFFSET = "__consumer_offsets";
   
   private final KafkaConsumer<Object, byte[]> kafcon;
-
+  private final int myId;
+  
   public QueueWatcher(String hostport) throws CreateFailedException {
-    log.info("starting QueueWatcher to watch Kafka at "+hostport);
+    this.myId = num.incrementAndGet();
+    log.info("starting "+getName()+" to watch Kafka at "+hostport);
     Properties props = new Properties();
     props.put("group.id", "some-random-group-id");
     props.put("bootstrap.servers", hostport);
@@ -42,16 +46,17 @@ public class QueueWatcher implements Closeable {
     try {
       assignAllPartitions();
     } catch (CheckedKafkaException e) {
+      kafcon.close();
       throw new CreateFailedException("see cause", e);
     }
     long later = System.nanoTime();
     double delta = (double)(later-start)/1000000;
-    log.info("consumer initialized in "+String.format("%.3fms", delta));
+    log.info(getName()+": consumer initialized in "+String.format("%.3fms", delta));
   }
   /*+******************************************************************/
   @Override
   public void close() {
-    log.info("closing QueueWatcher");
+    log.info("closing "+getName());
     kafcon.close();
   }
   /*+**********************************************************************/
@@ -190,7 +195,12 @@ public class QueueWatcher implements Closeable {
     }
     return result;
   }
+  /*+******************************************************************/
   private static TopicPartition tpFromPi(PartitionInfo pi) {
     return new TopicPartition(pi.topic(), pi.partition());
+  }
+  /*+******************************************************************/
+  public String getName() {
+    return this.getClass().getTypeName()+myId;
   }
 }

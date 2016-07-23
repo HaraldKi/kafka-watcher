@@ -71,12 +71,13 @@ public class ShowTopicContent  extends AllServletsParent {
     }
 
     QueueWatcher qw = null;
-    List<ConsumerRecord<Object, byte[]>> recs ;
+    List<ConsumerRecord<Object, byte[]>> recs = Collections.emptyList();
     try {
       qw = KafkaWatcherServer.getQueueWatcher();
       recs = qw.readRecords(topicName, offset, maxRecs, pattern);
-    } catch (CreateFailedException|CheckedKafkaException e) {
-      recs = Collections.emptyList();
+    } catch (CheckedKafkaException e) {
+      page.addContent(renderProblem(e));
+    } catch( CreateFailedException e ) {
       page.addContent(renderProblem(e.getCause()));
     }
 

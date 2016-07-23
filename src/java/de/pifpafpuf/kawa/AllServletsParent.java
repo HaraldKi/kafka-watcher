@@ -137,8 +137,12 @@ public class AllServletsParent extends HttpServlet {
   /*+******************************************************************/
   protected final Html renderProblem(Throwable ex) {
     Html div = new Html("div").setAttr("class", "error");
-    div.add("p").addText("problems attaching to Kafka:");
-    div.add("pre").addText(stacktrace(ex));
+    div.add("p")
+    .addText("problems attaching to Kafka:")
+    .add("b").addText(ex.getMessage());
+    div.add("pre")
+    .setAttr("class", "stacktrace")
+    .addText(stacktrace(ex));
     return div;
   }
   /*+******************************************************************/
