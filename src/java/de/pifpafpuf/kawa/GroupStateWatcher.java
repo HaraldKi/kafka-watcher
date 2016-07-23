@@ -19,6 +19,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import de.pifpafpuf.kawa.offmeta.GroupMetaKey;
@@ -49,17 +50,18 @@ public class GroupStateWatcher implements Runnable {
       Collections.unmodifiableMap(stateGroups);
   
   private final Map<TopicPartition, Long> partitionHeads = new HashMap<>();
-
+  /*+******************************************************************/
   public GroupStateWatcher(String hostport) {
     Properties props = new Properties();
     props.put("enable.auto.commit", "false");
     props.put("group.id", "random-"+new Random().nextInt());
     props.put("bootstrap.servers", hostport);
     offcon = new KafkaConsumer<>(props, OffsetsKeyDeserializer.INSTANCE,
-        new ByteArrayDeserializer());
+                                 new ByteArrayDeserializer());
+
     props.put("group.id", "random-"+new Random().nextInt());
     headcon = new KafkaConsumer<>(props, new StringDeserializer(),
-        new StringDeserializer());
+                                 new StringDeserializer());
   }
   /*+******************************************************************/
   public Map<String, OffsetMsgValue> getOffsetsState() {
@@ -76,12 +78,23 @@ public class GroupStateWatcher implements Runnable {
   /*+******************************************************************/
   @Override
   public void run() {
+    while (true) {
+      try {
+        innerRun();
+        return;
+      } catch (KafkaException e) {
+        log.info("bombed out, will restart", e);
+      }
+    }
+  }
+  /*+******************************************************************/
+  public void innerRun() {
     long start = System.currentTimeMillis();
     List<TopicPartition> tps = assignTopic();
     rewindOffsets(tps);
     tps = null;
     final int initialTimeout = 2000;
-    long records = processToTimeout(initialTimeout, 0);
+    long records = processToTimeout(initialTimeout, 0, Level.INFO);
     if (records<0) {
       return;
     }
@@ -89,10 +102,10 @@ public class GroupStateWatcher implements Runnable {
     long ds = (now-start-initialTimeout);
     log.info("read "+records+" records in "+ds+"ms before first emptying "
         + "the queue");
-    processToTimeout(Integer.MAX_VALUE, records);
+    processToTimeout(Integer.MAX_VALUE, records, Level.DEBUG);
   }
   /*+******************************************************************/
-  private final long processToTimeout(int timeout, long count) {
+  private final long processToTimeout(int timeout, long count, Level l) {
     while (true) {
       ConsumerRecords<MetaKey, byte[]> recs = getRecords(timeout);
       if (recs==null) {
@@ -102,8 +115,8 @@ public class GroupStateWatcher implements Runnable {
       if (recs.isEmpty()) {
         return count;
       }
-      if (log.isDebugEnabled()) {
-        log.debug("got "+recs.count()+" records");
+      if (log.isEnabledFor(l)) {
+        log.log(l, "got "+recs.count()+" records");
       }
       for (ConsumerRecord<MetaKey, byte[]> rec : recs.records(TOPIC_OFFSET)) {
         process(rec);
