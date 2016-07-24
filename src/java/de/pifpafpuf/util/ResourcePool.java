@@ -6,10 +6,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import org.apache.log4j.Logger;
-
-import de.pifpafpuf.kawa.KafkaWatcherServer;
-
 /**
  * <p>
  * maintains a pool of resources in <code>ThreadLocal</code> variables and
