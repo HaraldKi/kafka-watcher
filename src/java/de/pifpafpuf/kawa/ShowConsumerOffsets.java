@@ -47,10 +47,20 @@ public class ShowConsumerOffsets  extends AllServletsParent {
     page.addContent(renderRefresh(refreshSecs));
     page.addContent(renderHeader());
     page.addContent(renderForm(withClosed, withDead));
+    if (gsw.stillInitializing()) {
+      page.addContent(renderInitWarning(gsw.recordsRead()));
+    }
     page.addContent(renderTable(offs, groups, withClosed, withDead, loc));
 
     page.addContent(renderGroups(groups, withClosed));
     sendPage(resp, page);
+  }
+  /*+******************************************************************/
+  private EmptyElem renderInitWarning(long recordsRead) {
+    Html div = new Html("div").setAttr("class", "warning");
+    div.addText("consumer offsets still initializing, "
+                +recordsRead+" records read so far");
+    return div;
   }
   /*+******************************************************************/
   private EmptyElem renderRefresh(int refreshSecs) {

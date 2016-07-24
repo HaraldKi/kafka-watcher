@@ -143,3 +143,11 @@ table.withdata {
 .stacktrace:hover {
   height: auto;
 }
+
+.warning {
+  padding: 8px 5px;
+  margin: 5px 0px;
+  border: 1px solid black;
+  background: orange;
+  font-weight: bold;
+}

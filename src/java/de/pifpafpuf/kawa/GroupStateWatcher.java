@@ -9,6 +9,7 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -43,13 +44,16 @@ public class GroupStateWatcher implements Runnable {
       new ConcurrentHashMap<>();
   private final Map<String, OffsetMsgValue> uStateOffsets =
       Collections.unmodifiableMap(stateOffsets);
-  
+
   private final ConcurrentHashMap<String, GroupMsgValue> stateGroups =
       new ConcurrentHashMap<>();
   private final Map<String, GroupMsgValue> uStateGroups =
       Collections.unmodifiableMap(stateGroups);
-  
+
   private final Map<TopicPartition, Long> partitionHeads = new HashMap<>();
+  private volatile boolean initializing = true;
+  private AtomicLong recordsRead = new AtomicLong(0);
+
   /*+******************************************************************/
   public GroupStateWatcher(String hostport) {
     Properties props = new Properties();
@@ -72,6 +76,14 @@ public class GroupStateWatcher implements Runnable {
     return uStateGroups;
   }
   /*+******************************************************************/
+  public boolean stillInitializing() {
+    return initializing;
+  }
+  /*+******************************************************************/
+  public long recordsRead() {
+    return recordsRead.get();
+  }
+  /*+******************************************************************/
   public void shutdown() {
     offcon.wakeup();
   }
@@ -88,42 +100,43 @@ public class GroupStateWatcher implements Runnable {
     }
   }
   /*+******************************************************************/
+  enum State {STOP, CONTINUE}
   public void innerRun() {
     long start = System.currentTimeMillis();
     List<TopicPartition> tps = assignTopic();
     rewindOffsets(tps);
     tps = null;
     final int initialTimeout = 2000;
-    long records = processToTimeout(initialTimeout, 0, Level.INFO);
-    if (records<0) {
+    if (State.STOP==processToTimeout(initialTimeout, Level.INFO)) {;
       return;
     }
     long now = System.currentTimeMillis();
     long ds = (now-start-initialTimeout);
-    log.info("read "+records+" records in "+ds+"ms before first emptying "
-        + "the queue");
-    processToTimeout(Integer.MAX_VALUE, records, Level.DEBUG);
+    log.info("read "+recordsRead.get()+" records in "+ds
+             +"ms before first emptying the queue");
+    initializing = false;
+    processToTimeout(Integer.MAX_VALUE, Level.DEBUG);
   }
   /*+******************************************************************/
-  private final long processToTimeout(int timeout, long count, Level l) {
+  private final State processToTimeout(int timeout, Level l) {
     while (true) {
       ConsumerRecords<MetaKey, byte[]> recs = getRecords(timeout);
       if (recs==null) {
         offcon.close();
-        return -1;
+        return State.STOP;
       }
       if (recs.isEmpty()) {
-        return count;
+        return State.CONTINUE;
       }
       if (log.isEnabledFor(l)) {
         log.log(l, "got "+recs.count()+" records");
       }
+      recordsRead.addAndGet(recs.count());
       for (ConsumerRecord<MetaKey, byte[]> rec : recs.records(TOPIC_OFFSET)) {
         process(rec);
-        count += 1;
       }
       updateHeads();
-    }      
+    }
   }
   /*+******************************************************************/
   private final ConsumerRecords<MetaKey,byte[]> getRecords(long timeout) {
