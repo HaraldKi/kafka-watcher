@@ -14,35 +14,39 @@
    <url url="https://raw.githubusercontent.com/HaraldKi/hkAntLib/master/package.xml"/>
   </import>
   -->
-  <property name="version" value="2.0.0"/>
   <property name="project.java.version" value="1.8"/>
 
-  <target name="compile">
+  <target name="compile" depends="ivy">
     <do-javac/>
+  </target>
+
+  <target name="ivyinfo" xmlns:ivy="antlib:org.apache.ivy.ant">
+    <ivy:info/>
   </target>
 
   <target name="jar" depends="compile">
     <do-dist-jar/>
   </target>
 
-  <target name="versionfile">
+  <target name="versionfile" depends="ivyinfo">
+    <mkdir dir="build/tmp"/>
     <delete>
       <fileset dir="build/tmp" includes="version*"/>
     </delete>
     <tstamp>
       <format property="tstamp" pattern="yyyy-MM-dd_HH:mm:ss Z"/>
     </tstamp>
-    <mkdir dir="build/tmp"/>
-    <echo file="build/tmp/version-${version}.txt"
+    <echo file="build/tmp/version-${ivy.revision}.txt"
           message="packaged on ${tstamp}${line.separator}"/>
   </target>
-  <target name="distzip" depends="jar, versionfile">
-    <property name="d" value="kafka-watcher-${version}"/>
+
+  <target name="distzip" depends="jar, versionfile, ivyinfo">
+    <property name="d" value="kafka-watcher-${ivy.revision}"/>
     <zip destfile="build/sitecontent/download/${d}.zip">
       <zipfileset dir="build/tmp" includes="version*txt"
                   prefix="${d}"/>
       <zipfileset dir="build/sitecontent/download/"
-                  includes="kafka-watcher-${version}.jar"
+                  includes="kafka-watcher-${ivy.revision}.jar"
                   prefix="${d}/libs"/>
       <zipfileset dir="libs" includes="**/*.jar" prefix="${d}/libs"/>
       <zipfileset dir="src/conf" includes="*.properties" prefix="${d}/libs"/>
@@ -76,4 +80,11 @@
       </classpath>
     </java>
   </target>
+
+  <target name="ivy" xmlns:ivy="antlib:org.apache.ivy.ant">
+    <ivy:configure settingsId="ivyconf" file="./ivysettings.xml"/>
+    <ivy:resolve />
+    <ivy:retrieve pattern="libs/[artifact]-[revision].[ext]" />
+  </target>
+
 </project>
