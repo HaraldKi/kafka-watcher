@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -21,19 +23,9 @@ import de.pifpafpuf.web.urlparam.UrlParamCodec;
 
 public class AllServletsParent extends HttpServlet {
   private static final Logger log = KafkaWatcherServer.getLogger();
-  private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ssZ";
-  private static final ThreadLocal<DateFormat> df =
-      new ThreadLocal<DateFormat>() {
-    @Override
-    protected DateFormat initialValue() {
-      SimpleDateFormat result = new SimpleDateFormat(DATE_FORMAT);
-      // TODO: get time zone from browser. Problem: this seems to require
-      // javascript, where I currently still fine without
+  private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss'Z'";
+  DateTimeFormatter df = DateTimeFormatter.ofPattern(DATE_FORMAT);
 
-      //result.setTimeZone(TimeZone.getTimeZone("UTC"));
-      return result;
-    }
-  };
 
   void sendPage(HttpServletResponse resp, HtmlPage page) {
     page.addContent(renderFooter());
@@ -84,7 +76,7 @@ public class AllServletsParent extends HttpServlet {
 
     Html status = div.add("div").setAttr("class", "uistatus");
 
-    String tstamp = df.get().format(System.currentTimeMillis());
+    String tstamp  = dateFormat(System.currentTimeMillis());
     status.add("div")
     .setAttr("class", "pagetstamp")
     .addText(tstamp);
@@ -106,7 +98,9 @@ public class AllServletsParent extends HttpServlet {
   }
   /*+******************************************************************/
   protected final String dateFormat(long timestamp) {
-    return df.get().format(timestamp);
+    ZonedDateTime d = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp),
+                                              ZoneId.of("UTC"));
+    return df.format(d);
   }
   /*+******************************************************************/
   protected final void addRefreshMeta(HtmlPage page, int refreshSecs) {

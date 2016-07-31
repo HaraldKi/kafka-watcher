@@ -55,15 +55,10 @@ public class ShowConsumerOffsets  extends AllServletsParent {
   }
   /*+******************************************************************/
   private EmptyElem renderRecordsRead(GroupStateWatcher gsw) {
+    long tstamp = gsw.getlastRecordTstamp();
     Html div = new Html("div");
-    if (gsw.stillInitializing()) {
-      div.setAttr("class", "warning");
-      div.addText("consumer offsets still initializing, "
-          +gsw.recordsRead()+" records read so far"); 
-    } else {
-      div.addText("consumer offsets: "
-          +gsw.recordsRead()+" records read so far");       
-    }
+    div.addText("consumer offsets: "+gsw.recordsRead()+" records read so far"
+                +", last one read at "+dateFormat(tstamp));       
     return div;
   }
   /*+******************************************************************/

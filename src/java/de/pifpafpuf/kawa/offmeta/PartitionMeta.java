@@ -14,5 +14,11 @@ public class PartitionMeta {
     this.headOffset = headOffset;
     this.firstOffset = firstOffset;
   }
+
+  @Override
+  public String toString() {
+    return "PartitionMeta [t/p="+topic+"/"+partition
+        +", head="+headOffset+", firstOffset="+firstOffset+"]";
+  }
   
 }

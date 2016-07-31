@@ -35,8 +35,9 @@ public class ShowTopics  extends AllServletsParent {
 
     Locale loc = getLocale(req);
     
+    Html topicHtml = renderTopics(topics, loc); // run first for header tstamp 
     page.addContent(renderHeader());
-    page.addContent(renderTopics(topics, loc));
+    page.addContent(topicHtml);
     sendPage(resp, page);
   }
   /*+******************************************************************/

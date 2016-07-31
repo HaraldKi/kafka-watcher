@@ -20,7 +20,6 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import de.pifpafpuf.kawa.offmeta.GroupMetaKey;
@@ -51,8 +50,8 @@ public class GroupStateWatcher implements Runnable {
       Collections.unmodifiableMap(stateGroups);
 
   private final Map<TopicPartition, Long> partitionHeads = new HashMap<>();
-  private volatile boolean initializing = true;
   private AtomicLong recordsRead = new AtomicLong(0);
+  private AtomicLong lastRecordTstamp = new AtomicLong(0);
 
   /*+******************************************************************/
   public GroupStateWatcher(String hostport) {
@@ -76,12 +75,12 @@ public class GroupStateWatcher implements Runnable {
     return uStateGroups;
   }
   /*+******************************************************************/
-  public boolean stillInitializing() {
-    return initializing;
-  }
-  /*+******************************************************************/
   public long recordsRead() {
     return recordsRead.get();
+  }
+  /*+******************************************************************/
+  public long getlastRecordTstamp() {
+    return lastRecordTstamp.get();
   }
   /*+******************************************************************/
   public void shutdown() {
@@ -100,45 +99,24 @@ public class GroupStateWatcher implements Runnable {
     }
   }
   /*+******************************************************************/
-  enum State {STOP, CONTINUE}
   public void innerRun() {
     log.info("starting to read __consumer_offsets");
-    long start = System.currentTimeMillis();
-    List<TopicPartition> tps = assignTopic();
-    rewindOffsets(tps);
-    tps = null;
-
-    if (State.STOP==processToTimeout(2000, Level.INFO)) {
-      return;
-    }
-    log.debug("got nothing initially, trying again");
-    final int initialTimeout = 1000;
-    if (State.STOP==processToTimeout(initialTimeout, Level.INFO)) {
-      return;
-    }
-    
-    long ds = System.currentTimeMillis()-start-initialTimeout;
-    log.info("read "+recordsRead.get()+" records in "+ds
-             +"ms before first emptying the queue");
-    initializing = false;
-    processToTimeout(Integer.MAX_VALUE, Level.DEBUG);
-  }
-  /*+******************************************************************/
-  private final State processToTimeout(int timeout, Level l) {
+    resetAllPartitions();
     while (true) {
-      ConsumerRecords<MetaKey, byte[]> recs = getRecords(timeout);
+      ConsumerRecords<MetaKey, byte[]> recs = getRecords(5000);
       if (recs==null) {
         offcon.close();
-        return State.STOP;
+        return;
       }
       if (recs.isEmpty()) {
-        return State.CONTINUE;
+        continue;
       }
       recordsRead.addAndGet(recs.count());
-      if (log.isEnabledFor(l)) {
-        log.log(l, "got "+recs.count()+" records, total so far: "
+      if (log.isDebugEnabled()) {
+        log.debug("got "+recs.count()+" records, total so far: "
                 +recordsRead.get());
       }
+      lastRecordTstamp.set(System.currentTimeMillis());
       for (ConsumerRecord<MetaKey, byte[]> rec : recs.records(TOPIC_OFFSET)) {
         process(rec);
       }
@@ -151,9 +129,6 @@ public class GroupStateWatcher implements Runnable {
       return offcon.poll(timeout);
     } catch (WakeupException e) {
       log.info("got WakeupException, terminating");
-      return null;
-    } catch (KafkaException e) {
-      log.error("Exiting due to total screwup, see cause", e);
       return null;
     }
   }
@@ -209,20 +184,16 @@ public class GroupStateWatcher implements Runnable {
     }
   }
   /*+******************************************************************/
-  private final List<TopicPartition> assignTopic() {
+  private final void resetAllPartitions() {
     List<PartitionInfo> parts = offcon.partitionsFor(TOPIC_OFFSET);
     List<TopicPartition> tps = new LinkedList<>();
     for (PartitionInfo pi : parts) {
       tps.add(new TopicPartition(TOPIC_OFFSET, pi.partition()));
     }
     offcon.assign(tps);
-    return tps;
-  }
-  /*+******************************************************************/
-  private final void rewindOffsets(List<TopicPartition> tps) {
     for (TopicPartition tp : tps) {
       offcon.seek(tp, 0);
     }
   }
-
+  /*+******************************************************************/
 }

@@ -51,7 +51,8 @@ public class QueueWatcher implements Closeable {
     }
     long later = System.nanoTime();
     double delta = (double)(later-start)/1000000;
-    log.info(getName()+": consumer initialized in "+String.format("%.3fms", delta));
+    log.info(getName()+": consumer initialized in "
+        + String.format("%.3fms", delta));
   }
   /*+******************************************************************/
   @Override
@@ -78,21 +79,36 @@ public class QueueWatcher implements Closeable {
     try {
       Map<String, List<PartitionMeta>> result = new HashMap<>();
       Map<String, List<PartitionInfo>> m = kafcon.listTopics();
-      
+      if (log.isDebugEnabled()) {
+        log.debug("got "+m.size()+" topics alltogether");
+      }
+
+      List<TopicPartition> tps = new ArrayList<>(100);
       for (Map.Entry<String, List<PartitionInfo>> elem : m.entrySet()) {
         List<PartitionMeta> l = new LinkedList<>();
         String topic = elem.getKey();
         result.put(topic, l);
-        setOffsets(topic, -1);
-        for (PartitionInfo pi : elem.getValue()) {
-          TopicPartition tp = tpFromPi(pi);
-          long headOffset = kafcon.position(tp);
-          kafcon.seek(tp , 0);
-          //kafcon.poll(100);
-          long firstOffset = kafcon.position(tp);
-          l.add(new PartitionMeta(pi.topic(), pi.partition(),
-                                  firstOffset, headOffset+1));
+        
+        tps.clear();
+        for (PartitionInfo pi: elem.getValue()) {
+          tps.add(tpFromPi(pi));
         }
+        kafcon.seekToBeginning(tps);
+        for (TopicPartition tp : tps) {
+          long headOffset = kafcon.position(tp);
+          PartitionMeta pm = new PartitionMeta(tp.topic(), tp.partition(),
+                                               0, headOffset+1);
+          l.add(pm);
+          if (log.isDebugEnabled()) {
+            log.debug(pm);
+          }
+        }
+        // TODO: is there any use with seekToBeginning and find out the
+        // real first offset. It seem to always return 0
+        //kafcon.seekToEnd(tps);
+      }
+      if (log.isDebugEnabled()) {
+        log.debug("finished fetching all partition infos");
       }
       return result;
     } catch (KafkaException e) {
