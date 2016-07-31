@@ -93,7 +93,7 @@ public class QueueWatcher implements Closeable {
         for (PartitionInfo pi: elem.getValue()) {
           tps.add(tpFromPi(pi));
         }
-        kafcon.seekToBeginning(tps);
+        kafcon.seekToEnd(tps);
         for (TopicPartition tp : tps) {
           long headOffset = kafcon.position(tp);
           PartitionMeta pm = new PartitionMeta(tp.topic(), tp.partition(),
@@ -105,7 +105,7 @@ public class QueueWatcher implements Closeable {
         }
         // TODO: is there any use with seekToBeginning and find out the
         // real first offset. It seem to always return 0
-        //kafcon.seekToEnd(tps);
+        //kafcon.seekToBeginning(tps);
       }
       if (log.isDebugEnabled()) {
         log.debug("finished fetching all partition infos");
