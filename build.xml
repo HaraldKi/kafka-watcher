@@ -26,6 +26,9 @@
   </target>
 
   <target name="versionfile">
+    <delete>
+      <fileset dir="build/tmp" includes="version*"/>
+    </delete>
     <tstamp>
       <format property="tstamp" pattern="yyyy-MM-dd_HH:mm:ss Z"/>
     </tstamp>
