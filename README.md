@@ -11,9 +11,7 @@ Simple web UI to check the state of your Kafka logs.
 
 ## Compatibility
 
-- compiles against Kafka 0.9
-- connects also to Kafka 0.10, due to Kafka's builtin upgrade support
-- does not show all groups information available from a 0.10 broker.
+- compiles against Kafka 0.10
 
 ## How to use it?
 
@@ -26,12 +24,13 @@ java -cp 'libs;libs/*;libs/Jetty/*' de.pifpafpuf.kavi.KafkaViewerServer -h
 
 ## How to compile it yourself?
 
+**You are looking at branch for-0.10, which is for Kafka 0.10.*, while the trunk is for Kafka 0.9.**
 There is no ivy/maven integration yet. For the brave, here is the list of libs used:
 
 ```
 libs/
 libs/slf4j-log4j12-1.7.6.jar
-libs/kafka-clients-0.9.0.1.jar
+libs/kafka-clients-0.10.0.0.jar
 libs/log4j-1.2.17.jar
 libs/Jetty
 libs/Jetty/servlet-api-3.1.jar
