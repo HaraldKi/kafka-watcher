@@ -102,16 +102,22 @@ public class GroupStateWatcher implements Runnable {
   /*+******************************************************************/
   enum State {STOP, CONTINUE}
   public void innerRun() {
+    log.info("starting to read __consumer_offsets");
     long start = System.currentTimeMillis();
     List<TopicPartition> tps = assignTopic();
     rewindOffsets(tps);
     tps = null;
-    final int initialTimeout = 2000;
-    if (State.STOP==processToTimeout(initialTimeout, Level.INFO)) {;
+
+    if (State.STOP==processToTimeout(2000, Level.INFO)) {
       return;
     }
-    long now = System.currentTimeMillis();
-    long ds = (now-start-initialTimeout);
+    log.debug("got nothing initially, trying again");
+    final int initialTimeout = 1000;
+    if (State.STOP==processToTimeout(initialTimeout, Level.INFO)) {
+      return;
+    }
+    
+    long ds = System.currentTimeMillis()-start-initialTimeout;
     log.info("read "+recordsRead.get()+" records in "+ds
              +"ms before first emptying the queue");
     initializing = false;
@@ -128,10 +134,11 @@ public class GroupStateWatcher implements Runnable {
       if (recs.isEmpty()) {
         return State.CONTINUE;
       }
-      if (log.isEnabledFor(l)) {
-        log.log(l, "got "+recs.count()+" records");
-      }
       recordsRead.addAndGet(recs.count());
+      if (log.isEnabledFor(l)) {
+        log.log(l, "got "+recs.count()+" records, total so far: "
+                +recordsRead.get());
+      }
       for (ConsumerRecord<MetaKey, byte[]> rec : recs.records(TOPIC_OFFSET)) {
         process(rec);
       }
@@ -158,7 +165,8 @@ public class GroupStateWatcher implements Runnable {
       tps.add(tp);
     }
     headcon.assign(new LinkedList<>(tps));
-    headcon.seekToEnd(tps.toArray(new TopicPartition[tps.size()]));
+    //headcon.seekToEnd(tps.toArray(new TopicPartition[tps.size()]));
+    headcon.seekToEnd(tps);
     for (TopicPartition tp : tps) {
       long head = headcon.position(tp);
       partitionHeads.put(tp, head);

@@ -170,8 +170,8 @@ public class QueueWatcher implements Closeable {
 
     kafcon.assign(tps);
     if (offset<0) {
-      //TODO: for 0.10.0 kafcon.seekToEnd(tps);
-      kafcon.seekToEnd(tps.toArray(new TopicPartition[tps.size()]));
+      kafcon.seekToEnd(tps);
+      //TODO: for 0.9 kafcon.seekToEnd(tps.toArray(new TopicPartition[tps.size()]));
     }
     for (int i=0; i<numPartitions; i++) {
       TopicPartition tp = tps.remove(0);

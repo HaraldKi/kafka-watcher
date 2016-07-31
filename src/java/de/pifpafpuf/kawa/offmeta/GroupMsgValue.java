@@ -51,8 +51,14 @@ public class GroupMsgValue {
       // GROUP_METADATA_VALUE_SCHEMA_V0
       String protocolType = (String)Type.STRING.read(b);
       int generationId = (Integer)Type.INT32.read(b);
-      String protocol = (String)Type.STRING.read(b);
-      String leaderId = (String)Type.STRING.read(b);
+      String protocol = (String)Type.NULLABLE_STRING.read(b);
+      if (protocol==null) {
+        protocol = "";
+      }
+      String leaderId = (String)Type.NULLABLE_STRING.read(b);
+      if (leaderId==null) {
+        leaderId = "";
+      }
       List<GroupMember> members = readMemberArray(b);
 
       return new GroupMsgValue(version, protocolType,
